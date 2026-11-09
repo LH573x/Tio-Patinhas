@@ -70,20 +70,28 @@ function renderPrevia() {
 }
 entrada.addEventListener('input', renderPrevia);
 
-function registrar() {
-  if (!previa) return;
+let salvando = false;
+async function registrar() {
+  if (!previa || salvando) return;
   if (previa.valor === null) {
     toast('Coloque o valor, ex.: "salgado 8,50 pix"');
     return;
   }
-  if (previa.categoriaManual) store.aprenderRegra(previa.item, previa.categoria);
   const { categoriaManual, completo, ...reg } = previa;
-  store.adicionar(gerarLancamentos({ ...reg, origem: 'texto' }));
-  toast(`${reg.item} · ${formatarReais(reg.valor)} · ${reg.categoria} ✓`);
-  entrada.value = '';
-  renderPrevia();
-  render();
-  entrada.focus();
+  salvando = true;
+  try {
+    if (categoriaManual) await store.aprenderRegra(reg.item, reg.categoria);
+    await store.adicionar(gerarLancamentos({ ...reg, origem: 'texto' }));
+    toast(`${reg.item} · ${formatarReais(reg.valor)} · ${reg.categoria} ✓`);
+    entrada.value = '';
+    renderPrevia();
+    render();
+    entrada.focus();
+  } catch (e) {
+    toast(`Não salvou: ${e.message}`);
+  } finally {
+    salvando = false;
+  }
 }
 $('#form-registro').addEventListener('submit', (e) => {
   e.preventDefault();
@@ -117,21 +125,28 @@ function linhaRegistro(r) {
 function ligarEdicao(container) {
   container.querySelectorAll('.registro').forEach((el) => {
     const id = el.dataset.id;
-    el.querySelector('.salvar').addEventListener('click', () => {
+    el.querySelector('.salvar').addEventListener('click', async () => {
       const atual = store.listar().find((r) => r.id === id);
-      const m = {};
+      const m = { ...atual };
       el.querySelectorAll('[data-campo]').forEach((c) => { m[c.dataset.campo] = c.value; });
       m.valor = Number(String(m.valor).replace(/\./g, '').replace(',', '.')) || 0;
       m.metodo = m.metodo || null;
-      if (atual && m.categoria !== atual.categoria) store.aprenderRegra(m.item, m.categoria);
-      store.atualizar(id, m);
-      toast('Corrigido ✓');
-      render();
-    });
-    el.querySelector('.apagar').addEventListener('click', () => {
-      if (confirm('Apagar este registro?')) {
-        store.remover(id);
+      try {
+        if (atual && m.categoria !== atual.categoria) await store.aprenderRegra(m.item, m.categoria);
+        await store.atualizar(id, m);
+        toast('Corrigido ✓');
         render();
+      } catch (e) {
+        toast(`Não salvou: ${e.message}`);
+      }
+    });
+    el.querySelector('.apagar').addEventListener('click', async () => {
+      if (!confirm('Apagar este registro?')) return;
+      try {
+        await store.remover(id);
+        render();
+      } catch (e) {
+        toast(`Não apagou: ${e.message}`);
       }
     });
   });
@@ -204,9 +219,68 @@ function toast(msg) {
   timer = setTimeout(() => { el.hidden = true; }, 2600);
 }
 
+// ---------- Login ----------
+function mostrarApp(logado) {
+  $('#tela-login').hidden = logado;
+  $('#app').hidden = !logado;
+  $('.abas').hidden = !logado;
+  $('#sair').hidden = !logado;
+}
+
+async function aoEntrar() {
+  mostrarApp(true);
+  render(); // mostra a cópia local na hora
+  try {
+    await store.carregar();
+    const migrados = await store.migrarDadosAntigos();
+    if (migrados) toast(`${migrados} registros antigos enviados para a nuvem ✓`);
+  } catch (e) {
+    toast(`Sem sincronizar: ${e.message}`);
+  }
+  render();
+}
+
+async function enviarLogin(modo) {
+  const email = $('#login-email').value.trim();
+  const senha = $('#login-senha').value;
+  const aviso = $('#login-aviso');
+  if (!email || !senha) {
+    aviso.textContent = 'Preencha email e senha.';
+    return;
+  }
+  aviso.textContent = modo === 'cadastrar' ? 'Criando conta…' : 'Entrando…';
+  try {
+    if (modo === 'cadastrar') {
+      const { precisaConfirmar } = await store.cadastrar(email, senha);
+      if (precisaConfirmar) {
+        aviso.textContent = 'Conta criada. Abra o email de confirmação e depois toque em Entrar.';
+        return;
+      }
+    } else {
+      await store.entrar(email, senha);
+    }
+    aviso.textContent = '';
+    await aoEntrar();
+  } catch (e) {
+    aviso.textContent = e.message;
+  }
+}
+
+$('#form-login').addEventListener('submit', (e) => {
+  e.preventDefault();
+  enviarLogin('entrar');
+});
+$('#criar-conta').addEventListener('click', () => enviarLogin('cadastrar'));
+$('#sair').addEventListener('click', async () => {
+  if (!confirm('Sair da conta neste aparelho?')) return;
+  await store.sair();
+  mostrarApp(false);
+});
+
 // ---------- Início ----------
 const params = new URLSearchParams(location.search);
 abrirAba(abas.includes(params.get('aba')) ? params.get('aba') : 'registrar');
+store.usuario().then((u) => (u ? aoEntrar() : mostrarApp(false)));
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
