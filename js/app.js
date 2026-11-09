@@ -28,6 +28,7 @@ const app = {
     const raiz = $('#conteudo');
     if (!raiz || $('#app').hidden) return;
     ABAS[app.aba].tela(raiz, app);
+    if (app.aba === 'inicio') raiz.insertAdjacentHTML('afterbegin', cartaoInstalar());
   },
   irPara(aba, { rolar = true } = {}) {
     app.aba = ABAS[aba] ? aba : 'inicio';
@@ -100,7 +101,13 @@ function abrirAjustes() {
       <button type="button" class="menu-item" id="trocar-senha">${ICONES.chave}<span>Trocar senha</span>${ICONES.avancar}</button>
       <button type="button" class="menu-item perigo-texto" id="sair">${ICONES.sair}<span>Sair deste aparelho</span></button>
     </div>
-    <p class="versao">Tio Patinhas · versão 3</p>`, (folha) => {
+    <h3 class="sec-titulo">Aplicativo</h3>
+    ${blocoInstalar()}
+    <p class="versao">Tio Patinhas · versão 3.2</p>`, (folha, fechar) => {
+    $('#instalar-ajustes', folha)?.addEventListener('click', async () => {
+      fechar();
+      await instalar();
+    });
     $$('[data-tema]', folha).forEach((b) => b.addEventListener('click', () => {
       tema.definir(b.dataset.tema);
       $$('[data-tema]', folha).forEach((x) => {
@@ -117,6 +124,74 @@ function abrirAjustes() {
     });
   });
 }
+
+// ---------------------------------------------------------------- Instalar no celular
+let pedidoInstalacao = null;
+const instalado = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault(); // mostramos o nosso botão em vez do aviso do Chrome
+  pedidoInstalacao = e;
+  app.render();
+});
+window.addEventListener('appinstalled', () => {
+  pedidoInstalacao = null;
+  aviso('App instalado ✓ Abra pelo ícone na tela inicial.');
+  app.render();
+});
+
+export async function instalar() {
+  if (!pedidoInstalacao) {
+    abrirFolha('Instalar no celular', ajudaInstalar());
+    return;
+  }
+  pedidoInstalacao.prompt();
+  const { outcome } = await pedidoInstalacao.userChoice;
+  if (outcome === 'accepted') pedidoInstalacao = null;
+  app.render();
+}
+
+function ajudaInstalar() {
+  return `
+    <ol class="passos">
+      <li>Abra <b>lh573x.github.io/Tio-Patinhas</b> no <b>Chrome</b>.</li>
+      <li>Toque no menu <b>⋮</b> (canto de cima, à direita).</li>
+      <li>Toque em <b>Instalar app</b>. Se só aparecer “Adicionar à tela inicial”, toque nele e depois em <b>Instalar</b>.</li>
+      <li>Abra pelo novo ícone (moeda dourada) na tela inicial.</li>
+    </ol>
+    <p class="dica">Se aparecer um ícone antigo que não abre, segure em cima dele e toque em <b>Desinstalar</b> ou <b>Remover</b>.</p>`;
+}
+
+function blocoInstalar() {
+  if (instalado()) return `<p class="dica">${ICONES.ok} Você está usando o app instalado.</p>`;
+  return `
+    <div class="menu">
+      <button type="button" class="menu-item" id="instalar-ajustes">${ICONES.importar}<span>Instalar no celular</span>${ICONES.avancar}</button>
+    </div>`;
+}
+
+function cartaoInstalar() {
+  let dispensado = false;
+  try { dispensado = localStorage.getItem('tp.instalar.dispensado') === '1'; } catch { /* ignora */ }
+  if (!pedidoInstalacao || instalado() || dispensado) return '';
+  return `
+    <section class="cartao instalar">
+      <img src="icons/icon.svg" alt="" width="44" height="44">
+      <div><b>Instale o app no celular</b><p class="dica">Abre direto da tela inicial, mais rápido.</p></div>
+      <div class="instalar-acoes">
+        <button type="button" class="btn primario" data-instalar>Instalar</button>
+        <button type="button" class="link" data-instalar-depois>Agora não</button>
+      </div>
+    </section>`;
+}
+
+document.addEventListener('click', (e) => {
+  if (e.target.closest('[data-instalar]')) instalar();
+  if (e.target.closest('[data-instalar-depois]')) {
+    try { localStorage.setItem('tp.instalar.dispensado', '1'); } catch { /* ignora */ }
+    app.render();
+  }
+});
 
 function abrirTrocarSenha() {
   abrirFolha('Trocar senha', `
