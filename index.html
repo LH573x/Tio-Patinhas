@@ -47,14 +47,15 @@
       <label class="campo">Email<input id="login-email" type="email" autocomplete="email" required></label>
       <label class="campo">Senha<input id="login-senha" type="password" autocomplete="current-password" minlength="6" required></label>
       <button type="submit" class="btn primario largo">Entrar</button>
+      <div class="login-ou" aria-hidden="true"><span>ou</span></div>
       <button type="button" id="entrar-link" class="btn secundario largo">Entrar sem senha (link no email)</button>
       <p id="login-aviso" class="aviso-login" role="status"></p>
       <div class="login-links">
-        <button type="button" id="esqueci-senha" class="link">Esqueci minha senha</button>
-        <button type="button" id="criar-conta" class="link">Criar conta</button>
+        <p>Ainda não tem conta? <button type="button" id="criar-conta" class="link">Criar conta</button></p>
+        <button type="button" id="esqueci-senha" class="link-discreto">Esqueci minha senha</button>
       </div>
-      <p class="dica centro">Seus registros ficam guardados na nuvem, protegidos pela sua conta.</p>
     </form>
+    <p class="login-rodape">Seus registros ficam guardados na nuvem, protegidos pela sua conta.</p>
   </section>
 
   <main id="app" hidden>
