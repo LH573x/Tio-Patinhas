@@ -1,4 +1,4 @@
-// Tema: Claro (estilo A), Escuro (estilo B) ou Automático (segue o celular).
+// Tema: Claro, Escuro ou Automático (segue o celular).
 const CHAVE = 'tp.tema';
 const midia = window.matchMedia('(prefers-color-scheme: dark)');
 const ouvintes = new Set();
@@ -25,7 +25,7 @@ function aplicar() {
   const raiz = document.documentElement;
   if (p === 'auto') raiz.removeAttribute('data-theme');
   else raiz.setAttribute('data-theme', p === 'escuro' ? 'dark' : 'light');
-  const cor = efetivo() === 'escuro' ? '#0b0d0c' : '#f5f6f4';
+  const cor = efetivo() === 'escuro' ? '#0b0b0c' : '#fafaf8';
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', cor);
   ouvintes.forEach((f) => f());
 }

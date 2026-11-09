@@ -1,25 +1,22 @@
 // Linha de um registro e a folha de edição, usadas em várias telas.
 import { CATEGORIAS_GASTO, CATEGORIAS_ENTRADA, METODOS } from '../parser.js';
 import { store } from '../store.js';
-import { $, $$, esc, reais, selo, abrirFolha, confirmar, aviso, lerNumero, numeroParaCampo, ICONES } from '../util.js';
-import { infoCategoria } from '../categorias.js';
+import { $, $$, esc, reais, abrirFolha, confirmar, aviso, lerNumero, numeroParaCampo, ICONES } from '../util.js';
 import { opcoesCartao } from './cartoes.js';
 
 export function bolinha(categoria, app) {
-  const info = infoCategoria(categoria);
-  return `<span class="bolinha" style="--cor:${app.cor(categoria)}" aria-hidden="true">${info.icone}</span>`;
+  return `<span class="bolinha" style="--cor:${app.cor(categoria)}" aria-hidden="true"></span>`;
 }
 
 export function linhaRegistro(r, app, { mostrarData = false } = {}) {
-  const detalhe = [r.categoria, r.metodo, mostrarData ? r.data.split('-').reverse().slice(0, 2).join('/') : null, r.hora, r.local]
+  const detalhe = [r.categoria, r.parcela ? r.parcela.replace('/', ' de ') : null, r.metodo,
+    mostrarData ? r.data.split('-').reverse().slice(0, 2).join('/') : null, r.hora, r.local]
     .filter(Boolean).join(' · ');
-  const ORIGENS = { extrato: 'extrato', cupom: 'cupom', conta: 'conta fixa' };
-  const origem = r.origem && ORIGENS[r.origem] ? selo(ORIGENS[r.origem]) : '';
   return `
     <button type="button" class="registro" data-id="${r.id}">
       ${bolinha(r.categoria, app)}
       <span class="registro-meio">
-        <span class="registro-item">${esc(r.item)}${r.parcela ? selo(`parcela ${r.parcela}`) : ''}${origem}</span>
+        <span class="registro-item">${esc(r.item)}</span>
         <span class="registro-detalhe">${esc(detalhe)}</span>
       </span>
       <span class="registro-valor ${r.tipo}">${r.tipo === 'entrada' ? '+' : ''}${reais(r.valor)}</span>

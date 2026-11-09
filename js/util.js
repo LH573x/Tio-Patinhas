@@ -24,6 +24,14 @@ export function reaisGrande(v) {
   return `${esc(txt.slice(0, i))}<span class="centavos">${esc(txt.slice(i))}</span>`;
 }
 
+/** Valor grande do topo: "R$" e centavos menores. Retorna HTML. */
+export function valorHero(v, { centavos = true } = {}) {
+  const txt = reais(v, { centavos });
+  const m = txt.match(/^(−?)R\$\s*(.+?)(,\d\d)?$/);
+  if (!m) return esc(txt);
+  return `<span class="moeda">${m[1]}R$</span>${esc(m[2])}${m[3] ? `<span class="centavos">${esc(m[3])}</span>` : ''}`;
+}
+
 /**
  * Selo de estado (chip pequeno). tipo: neutro | ok | atencao | estourou | destaque
  * Ex.: selo('Vence hoje', 'atencao')
@@ -147,6 +155,7 @@ export const ICONES = {
   lista: svg('<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/>'),
   painel: svg('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
   metas: svg('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2"/>'),
+  subir: svg('<path d="M12 19V5M6 11l6-6 6 6"/>'),
   enviar: svg('<path d="M5 12h14M13 6l6 6-6 6"/>'),
   camera: svg('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>'),
   arquivo: svg('<path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4M9 13h6M9 17h6"/>'),
