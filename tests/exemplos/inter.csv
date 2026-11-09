@@ -1,0 +1,9 @@
+Extrato Conta Corrente
+Conta ;12345678
+Período ;01/11/2026 a 09/11/2026
+
+Data Lançamento;Descrição;Valor;Saldo
+02/11/2026;Pix enviado: "Cinema Kinoplex";-70,00;1.230,00
+02/11/2026;Pix enviado: "Cinema Kinoplex";-70,00;1.160,00
+03/11/2026;Compra no débito: "Hotel Pousada Mar";-1.234,56;-74,56
+05/11/2026;Pix recebido: "Joao Silva";150,00;75,44

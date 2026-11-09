@@ -1,268 +1,194 @@
-import {
-  interpretar, gerarLancamentos, formatarReais, CATEGORIAS_GASTO, CATEGORIAS_ENTRADA, METODOS,
-} from './parser.js';
+// Casca do app: login, abas, cabeçalho, ajustes (tema, senha, sair).
 import { store } from './store.js';
+import * as tema from './tema.js';
+import { infoCategoria } from './categorias.js';
+import { mesDe, iso } from './analise.js';
+import { $, $$, esc, aviso, abrirFolha, confirmar, ICONES } from './util.js';
+import { telaInicio } from './telas/inicio.js';
+import { telaLancamentos } from './telas/lancamentos.js';
+import { telaPainel } from './telas/painel.js';
+import { telaMetas } from './telas/metas.js';
 
-const $ = (sel) => document.querySelector(sel);
+const ABAS = {
+  inicio: { nome: 'Início', icone: ICONES.inicio, tela: telaInicio },
+  lancamentos: { nome: 'Lançamentos', icone: ICONES.lista, tela: telaLancamentos },
+  painel: { nome: 'Painel', icone: ICONES.painel, tela: telaPainel },
+  metas: { nome: 'Metas', icone: ICONES.metas, tela: telaMetas },
+};
+const ANTIGAS = { registrar: 'inicio', ontem: 'inicio', mes: 'painel' }; // atalhos da versão anterior
 
-function hojeISO(delta = 0) {
-  const d = new Date();
-  d.setDate(d.getDate() + delta);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const app = {
+  aba: 'inicio',
+  mes: mesDe(iso(new Date())),
+  cor(categoria) {
+    const info = infoCategoria(categoria);
+    return tema.efetivo() === 'escuro' ? info.corEscura : info.cor;
+  },
+  render() {
+    const raiz = $('#conteudo');
+    if (!raiz || $('#app').hidden) return;
+    ABAS[app.aba].tela(raiz, app);
+  },
+  irPara(aba, { rolar = true } = {}) {
+    app.aba = ABAS[aba] ? aba : 'inicio';
+    if (app.aba === 'inicio') app.mes = mesDe(iso(new Date()));
+    $$('.abas button').forEach((b) => {
+      const ativa = b.dataset.aba === app.aba;
+      b.classList.toggle('ativa', ativa);
+      if (ativa) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
+    });
+    $('#titulo-aba').textContent = app.aba === 'inicio' ? saudacao() : ABAS[app.aba].nome;
+    app.render();
+    if (rolar) window.scrollTo({ top: 0 });
+  },
+};
+
+function saudacao() {
+  const h = new Date().getHours();
+  if (h < 5) return 'Boa noite';
+  if (h < 12) return 'Bom dia';
+  if (h < 18) return 'Boa tarde';
+  return 'Boa noite';
 }
 
-function dataCurta(iso) {
-  const [, m, d] = iso.split('-');
-  return `${d}/${m}`;
-}
+// ---------------------------------------------------------------- Navegação
+$('.abas').innerHTML = Object.entries(ABAS).map(([id, a]) => `
+  <button type="button" data-aba="${id}">${a.icone}<span>${a.nome}</span></button>`).join('');
+$$('.abas button').forEach((b) => b.addEventListener('click', () => app.irPara(b.dataset.aba)));
 
-function esc(t) {
-  return String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
-// ---------- Abas ----------
-const abas = ['registrar', 'ontem', 'mes'];
-function abrirAba(nome) {
-  abas.forEach((a) => {
-    $(`#aba-${a}`).hidden = a !== nome;
-    $(`[data-aba="${a}"]`).setAttribute('aria-selected', a === nome);
-  });
-  render();
-}
-document.querySelectorAll('[data-aba]').forEach((b) => b.addEventListener('click', () => abrirAba(b.dataset.aba)));
-
-// ---------- Registrar ----------
-const entrada = $('#frase');
-let previa = null;
-
-function opcoes(lista, atual) {
-  return lista.map((o) => `<option ${o === atual ? 'selected' : ''}>${esc(o)}</option>`).join('');
-}
-
-function renderPrevia() {
-  const texto = entrada.value.trim();
-  const box = $('#previa');
-  if (!texto) {
-    previa = null;
-    box.hidden = true;
-    return;
+// Links internos: qualquer elemento com data-ir="aba"
+document.addEventListener('click', (e) => {
+  const alvo = e.target.closest('[data-ir]');
+  if (alvo) {
+    e.preventDefault();
+    app.irPara(alvo.dataset.ir);
   }
-  previa = interpretar(texto, { regras: store.regras() });
-  const cats = previa.tipo === 'entrada' ? CATEGORIAS_ENTRADA : CATEGORIAS_GASTO;
-  box.hidden = false;
-  box.innerHTML = `
-    <div class="previa-linha">
-      <span class="chip ${previa.tipo}">${previa.tipo === 'entrada' ? 'Entrada' : 'Gasto'}</span>
-      <strong>${esc(previa.item)}</strong>
-      <span class="valor ${previa.valor === null ? 'falta' : ''}">${previa.valor === null ? 'falta o valor' : formatarReais(previa.valor)}</span>
-    </div>
-    <div class="previa-campos">
-      <label>Pagamento<select id="p-metodo"><option value="">—</option>${opcoes(METODOS, previa.metodo)}</select></label>
-      <label>Categoria<select id="p-cat">${opcoes(cats, previa.categoria)}</select></label>
-    </div>
-    ${previa.parcelas > 1 ? `<p class="dica">${previa.parcelas}x de ${formatarReais(previa.valorParcela)}, uma por mês</p>` : ''}
-    ${previa.data !== hojeISO() ? `<p class="dica">Data: ${dataCurta(previa.data)}</p>` : ''}`;
-  $('#p-metodo').addEventListener('change', (e) => { previa.metodo = e.target.value || null; });
-  $('#p-cat').addEventListener('change', (e) => {
-    previa.categoria = e.target.value;
-    previa.categoriaManual = true;
-  });
-}
-entrada.addEventListener('input', renderPrevia);
-
-let salvando = false;
-async function registrar() {
-  if (!previa || salvando) return;
-  if (previa.valor === null) {
-    toast('Coloque o valor, ex.: "salgado 8,50 pix"');
-    return;
-  }
-  const { categoriaManual, completo, ...reg } = previa;
-  salvando = true;
-  try {
-    if (categoriaManual) await store.aprenderRegra(reg.item, reg.categoria);
-    await store.adicionar(gerarLancamentos({ ...reg, origem: 'texto' }));
-    toast(`${reg.item} · ${formatarReais(reg.valor)} · ${reg.categoria} ✓`);
-    entrada.value = '';
-    renderPrevia();
-    render();
-    entrada.focus();
-  } catch (e) {
-    toast(`Não salvou: ${e.message}`);
-  } finally {
-    salvando = false;
-  }
-}
-$('#form-registro').addEventListener('submit', (e) => {
-  e.preventDefault();
-  registrar();
 });
 
-// ---------- Lista editável ----------
-function linhaRegistro(r) {
-  const cats = r.tipo === 'entrada' ? CATEGORIAS_ENTRADA : CATEGORIAS_GASTO;
+tema.aoMudar(() => app.render());
+
+// ---------------------------------------------------------------- Ajustes
+const OPCOES_TEMA = [
+  { id: 'claro', nome: 'Claro', icone: ICONES.sol },
+  { id: 'escuro', nome: 'Escuro', icone: ICONES.lua },
+  { id: 'auto', nome: 'Automático', icone: ICONES.auto },
+];
+
+function seletorTema() {
+  const atual = tema.preferencia();
   return `
-    <details class="registro" data-id="${r.id}">
-      <summary>
-        <span class="r-item">${esc(r.item)}${r.parcela ? ` <small>${r.parcela}</small>` : ''}</span>
-        <span class="r-cat">${esc(r.categoria)}${r.metodo ? ` · ${esc(r.metodo)}` : ''}</span>
-        <span class="r-valor ${r.tipo}">${r.tipo === 'entrada' ? '+' : ''}${formatarReais(r.valor)}</span>
-      </summary>
-      <div class="editar">
-        <label>Item<input data-campo="item" value="${esc(r.item)}"></label>
-        <label>Valor<input data-campo="valor" inputmode="decimal" value="${String(r.valor).replace('.', ',')}"></label>
-        <label>Pagamento<select data-campo="metodo"><option value="">—</option>${opcoes(METODOS, r.metodo)}</select></label>
-        <label>Categoria<select data-campo="categoria">${opcoes(cats, r.categoria)}</select></label>
-        <label>Data<input data-campo="data" type="date" value="${r.data}"></label>
-        <div class="acoes">
-          <button type="button" class="salvar">Salvar</button>
-          <button type="button" class="apagar">Apagar</button>
-        </div>
-      </div>
-    </details>`;
+    <div class="seletor-tema" role="radiogroup" aria-label="Aparência">
+      ${OPCOES_TEMA.map((o) => `
+        <button type="button" role="radio" aria-checked="${o.id === atual}" data-tema="${o.id}" class="${o.id === atual ? 'ativo' : ''}">
+          ${o.icone}<span>${o.nome}</span></button>`).join('')}
+    </div>`;
 }
 
-function ligarEdicao(container) {
-  container.querySelectorAll('.registro').forEach((el) => {
-    const id = el.dataset.id;
-    el.querySelector('.salvar').addEventListener('click', async () => {
-      const atual = store.listar().find((r) => r.id === id);
-      const m = { ...atual };
-      el.querySelectorAll('[data-campo]').forEach((c) => { m[c.dataset.campo] = c.value; });
-      m.valor = Number(String(m.valor).replace(/\./g, '').replace(',', '.')) || 0;
-      m.metodo = m.metodo || null;
-      try {
-        if (atual && m.categoria !== atual.categoria) await store.aprenderRegra(m.item, m.categoria);
-        await store.atualizar(id, m);
-        toast('Corrigido ✓');
-        render();
-      } catch (e) {
-        toast(`Não salvou: ${e.message}`);
-      }
+function abrirAjustes() {
+  const email = store.email();
+  abrirFolha('Ajustes', `
+    <div class="conta">
+      <span class="avatar grande" aria-hidden="true">${esc((email[0] || '?').toUpperCase())}</span>
+      <div><b>Sua conta</b><small>${esc(email)}</small></div>
+    </div>
+    <h3 class="sec-titulo">Aparência</h3>
+    ${seletorTema()}
+    <p class="dica">Automático segue o modo do celular.</p>
+    <h3 class="sec-titulo">Conta</h3>
+    <div class="menu">
+      <button type="button" class="menu-item" id="trocar-senha">${ICONES.chave}<span>Trocar senha</span>${ICONES.avancar}</button>
+      <button type="button" class="menu-item perigo-texto" id="sair">${ICONES.sair}<span>Sair deste aparelho</span></button>
+    </div>
+    <p class="versao">Tio Patinhas · versão 3</p>`, (folha) => {
+    $$('[data-tema]', folha).forEach((b) => b.addEventListener('click', () => {
+      tema.definir(b.dataset.tema);
+      $$('[data-tema]', folha).forEach((x) => {
+        const ativo = x === b;
+        x.classList.toggle('ativo', ativo);
+        x.setAttribute('aria-checked', String(ativo));
+      });
+    }));
+    $('#trocar-senha', folha).addEventListener('click', abrirTrocarSenha);
+    $('#sair', folha).addEventListener('click', async () => {
+      if (!(await confirmar('Sair da conta neste aparelho? Seus dados continuam guardados na nuvem.', { sim: 'Sair', perigo: true }))) return;
+      await store.sair();
+      mostrarApp(false);
     });
-    el.querySelector('.apagar').addEventListener('click', async () => {
-      if (!confirm('Apagar este registro?')) return;
+  });
+}
+
+function abrirTrocarSenha() {
+  abrirFolha('Trocar senha', `
+    <form class="formulario" id="form-senha">
+      <label class="campo">Nova senha<input name="senha" type="password" autocomplete="new-password" minlength="6" required></label>
+      <label class="campo">Repita a nova senha<input name="repetir" type="password" autocomplete="new-password" minlength="6" required></label>
+      <div class="acoes-folha"><button type="submit" class="btn primario largo">Salvar nova senha</button></div>
+    </form>`, (folha, fechar) => {
+    $('#form-senha', folha).addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      if (f.get('senha') !== f.get('repetir')) { aviso('As duas senhas não são iguais', 'erro'); return; }
       try {
-        await store.remover(id);
-        render();
-      } catch (e) {
-        toast(`Não apagou: ${e.message}`);
+        await store.trocarSenha(f.get('senha'));
+        fechar();
+        aviso('Senha trocada ✓');
+      } catch (err) {
+        aviso(err.message, 'erro');
       }
     });
   });
 }
 
-function listaHTML(regs, vazio) {
-  if (!regs.length) return `<p class="vazio">${vazio}</p>`;
-  return regs.map(linhaRegistro).join('');
-}
+$('#btn-ajustes').addEventListener('click', abrirAjustes);
 
-function totais(regs) {
-  return regs.reduce((t, r) => {
-    t[r.tipo] += r.valor;
-    return t;
-  }, { gasto: 0, entrada: 0 });
-}
-
-// ---------- Render ----------
-function render() {
-  const todos = store.listar().sort((a, b) => (b.data + b.criadoEm).localeCompare(a.data + a.criadoEm));
-  const hoje = hojeISO();
-  const ontem = hojeISO(-1);
-  const mes = hoje.slice(0, 7);
-
-  // Hoje (aba Registrar)
-  const deHoje = todos.filter((r) => r.data === hoje);
-  $('#lista-hoje').innerHTML = listaHTML(deHoje, 'Nada registrado hoje ainda.');
-  $('#total-hoje').textContent = formatarReais(totais(deHoje).gasto);
-  ligarEdicao($('#lista-hoje'));
-
-  // Ontem
-  const deOntem = todos.filter((r) => r.data === ontem);
-  $('#titulo-ontem').textContent = `Ontem, ${dataCurta(ontem)}`;
-  $('#lista-ontem').innerHTML = listaHTML(deOntem, 'Nenhum registro ontem.');
-  $('#total-ontem').textContent = formatarReais(totais(deOntem).gasto);
-  ligarEdicao($('#lista-ontem'));
-
-  // Mês
-  const doMes = todos.filter((r) => r.data.startsWith(mes) && r.data <= hoje);
-  const t = totais(doMes);
-  $('#mes-gastos').textContent = formatarReais(t.gasto);
-  $('#mes-entradas').textContent = formatarReais(t.entrada);
-  $('#mes-saldo').textContent = formatarReais(t.entrada - t.gasto);
-  $('#total-mes').textContent = formatarReais(t.gasto);
-  const porCat = CATEGORIAS_GASTO.map((c) => ({
-    c, v: doMes.filter((r) => r.tipo === 'gasto' && r.categoria === c).reduce((s, r) => s + r.valor, 0),
-  })).filter((x) => x.v > 0).sort((a, b) => b.v - a.v);
-  const max = Math.max(1, ...porCat.map((x) => x.v));
-  $('#mes-categorias').innerHTML = porCat.length
-    ? porCat.map((x) => `
-      <div class="barra">
-        <div class="barra-topo"><span>${esc(x.c)}</span><span>${formatarReais(x.v)} · ${Math.round((x.v / t.gasto) * 100)}%</span></div>
-        <div class="barra-fundo"><div class="barra-cheia" style="width:${(x.v / max) * 100}%"></div></div>
-      </div>`).join('')
-    : '<p class="vazio">Sem gastos neste mês ainda.</p>';
-  const futuras = todos.filter((r) => r.data > hoje && r.parcela);
-  $('#mes-futuras').innerHTML = futuras.length
-    ? `<h3>Parcelas futuras</h3>${listaHTML(futuras.sort((a, b) => a.data.localeCompare(b.data)), '')}`
-    : '';
-  ligarEdicao($('#mes-futuras'));
-}
-
-// ---------- Toast ----------
-let timer;
-function toast(msg) {
-  const el = $('#toast');
-  el.textContent = msg;
-  el.hidden = false;
-  clearTimeout(timer);
-  timer = setTimeout(() => { el.hidden = true; }, 2600);
-}
-
-// ---------- Login ----------
+// ---------------------------------------------------------------- Login
 function mostrarApp(logado) {
   $('#tela-login').hidden = logado;
   $('#app').hidden = !logado;
   $('.abas').hidden = !logado;
-  $('#sair').hidden = !logado;
+  $('.topo').hidden = !logado;
+  if (logado) {
+    $('#btn-ajustes').innerHTML = esc((store.email()[0] || '?').toUpperCase());
+  }
 }
 
 async function aoEntrar() {
   mostrarApp(true);
-  render(); // mostra a cópia local na hora
+  app.irPara(app.aba, { rolar: false }); // mostra a cópia local na hora
   try {
     await store.carregar();
     const migrados = await store.migrarDadosAntigos();
-    if (migrados) toast(`${migrados} registros antigos enviados para a nuvem ✓`);
+    if (migrados) aviso(`${migrados} registros antigos enviados para a nuvem ✓`);
   } catch (e) {
-    toast(`Sem sincronizar: ${e.message}`);
+    aviso(`Sem sincronizar: ${e.message}`, 'erro');
   }
-  render();
+  app.render();
 }
 
 async function enviarLogin(modo) {
   const email = $('#login-email').value.trim();
   const senha = $('#login-senha').value;
-  const aviso = $('#login-aviso');
+  const msg = $('#login-aviso');
   if (!email || !senha) {
-    aviso.textContent = 'Preencha email e senha.';
+    msg.textContent = 'Preencha email e senha.';
     return;
   }
-  aviso.textContent = modo === 'cadastrar' ? 'Criando conta…' : 'Entrando…';
+  msg.textContent = modo === 'cadastrar' ? 'Criando conta…' : 'Entrando…';
   try {
     if (modo === 'cadastrar') {
       const { precisaConfirmar } = await store.cadastrar(email, senha);
       if (precisaConfirmar) {
-        aviso.textContent = 'Conta criada. Abra o email de confirmação e depois toque em Entrar.';
+        msg.textContent = 'Conta criada. Abra o email de confirmação e depois toque em Entrar.';
         return;
       }
     } else {
       await store.entrar(email, senha);
     }
-    aviso.textContent = '';
+    msg.textContent = '';
     await aoEntrar();
   } catch (e) {
-    aviso.textContent = e.message;
+    msg.textContent = e.message;
   }
 }
 
@@ -271,16 +197,24 @@ $('#form-login').addEventListener('submit', (e) => {
   enviarLogin('entrar');
 });
 $('#criar-conta').addEventListener('click', () => enviarLogin('cadastrar'));
-$('#sair').addEventListener('click', async () => {
-  if (!confirm('Sair da conta neste aparelho?')) return;
-  await store.sair();
-  mostrarApp(false);
+
+// Ao voltar para o app depois de um tempo, busca novidades (ex.: cupons lidos de madrugada).
+let ultimaCarga = Date.now();
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState !== 'visible' || $('#app').hidden || Date.now() - ultimaCarga < 5 * 60e3) return;
+  ultimaCarga = Date.now();
+  try {
+    await store.carregar();
+    app.render();
+  } catch { /* sem internet: segue com a cópia local */ }
 });
 
-// ---------- Início ----------
-const params = new URLSearchParams(location.search);
-abrirAba(abas.includes(params.get('aba')) ? params.get('aba') : 'registrar');
-store.usuario().then((u) => (u ? aoEntrar() : mostrarApp(false)));
+// ---------------------------------------------------------------- Início
+const pedida = new URLSearchParams(location.search).get('aba');
+app.aba = ABAS[pedida] ? pedida : ANTIGAS[pedida] || 'inicio';
+store.usuario()
+  .then((u) => (u ? aoEntrar() : mostrarApp(false)))
+  .catch(() => mostrarApp(false));
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
