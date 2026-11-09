@@ -1,12 +1,11 @@
 // Contas fixas, cartões, limites por categoria e metas de economia.
 import { CATEGORIAS_GASTO } from '../parser.js';
-import { statusLimites, resumoMes, historicoMeses, planoMeta, mesDe, iso, nomeMes, somarMesesMes, doMes } from '../analise.js';
+import { statusLimites, resumoMes, planoMeta, mesDe, iso, somarMesesMes, doMes } from '../analise.js';
 import { store } from '../store.js';
 import { $, $$, esc, reais, pct, abrirFolha, confirmar, aviso, lerNumero, numeroParaCampo, ICONES, avisoBanco } from '../util.js';
 import { cardContas, ligarContas } from './contas.js';
 import { cardCartoes, ligarCartoes } from './cartoes.js';
 import { progresso, estadoLimite } from '../graficos.js';
-import { bolinha } from './registro.js';
 
 function mediaCategoria(categoria) {
   const atual = mesDe(iso(new Date()));
@@ -120,6 +119,8 @@ function guardar(meta, app) {
   });
 }
 
+let semLimiteAberto = false;
+
 export function telaMetas(raiz, app) {
   const hoje = new Date();
   const mes = mesDe(iso(hoje));
@@ -127,57 +128,61 @@ export function telaMetas(raiz, app) {
   const status = new Map(statusLimites(registros, store.orcamentos(), mes, hoje).map((s) => [s.categoria, s]));
   const r = resumoMes(registros, mes, hoje);
   const gastoCat = new Map(r.categorias.map((c) => [c.categoria, c.valor]));
-  const totalLimites = [...status.values()].reduce((s, l) => s + l.limite, 0);
   const metas = store.metas();
-  const hist = historicoMeses(registros, somarMesesMes(mes, -1), 3);
-  const sobraMedia = hist.filter((h) => h.entrada > 0).map((h) => h.entrada - h.gasto);
-  const mediaSobra = sobraMedia.length ? sobraMedia.reduce((a, b) => a + b, 0) / sobraMedia.length : null;
+  const comLimite = CATEGORIAS_GASTO.filter((c) => status.has(c));
+  const semLimite = CATEGORIAS_GASTO.filter((c) => !status.has(c));
 
   raiz.innerHTML = `
     ${avisoBanco(store.bancoDesatualizado)}
     ${cardContas(app)}
-    ${cardCartoes(app)}
+
     <section class="cartao">
-      <div class="cartao-topo"><h2>Limites de ${nomeMes(mes, { ano: false })}</h2>
-        ${totalLimites ? `<span class="dica">${reais(r.gasto, { centavos: false })} de ${reais(totalLimites, { centavos: false })}</span>` : ''}</div>
-      <p class="dica">Defina quanto quer gastar por mês em cada categoria. O app avisa quando estiver chegando perto.</p>
-      <ul class="lista-limites">${CATEGORIAS_GASTO.map((c) => {
+      <div class="cartao-topo"><h2>Limites por categoria</h2></div>
+      <ul class="lista-limites">${comLimite.map((c) => {
         const s = status.get(c);
         const gasto = gastoCat.get(c) || 0;
         return `
           <li><button type="button" class="limite-linha" data-cat="${esc(c)}">
-            <div class="cat-topo">${bolinha(c, app)}<span class="cat-nome">${esc(c)}</span>
-              <span class="cat-valor">${s ? `<b>${reais(gasto, { centavos: false })}</b><small>de ${reais(s.limite, { centavos: false })}</small>`
-                : `<span class="definir">${ICONES.mais}Definir</span>`}</span></div>
-            ${s ? progresso(gasto / s.limite, estadoLimite(gasto / s.limite), `${c}: ${pct(gasto / s.limite)} do limite`, { marca: true }) : ''}
+            <span class="limite-topo"><span>${esc(c)}</span>
+              <span class="valor">${reais(gasto, { centavos: false })} <small>de ${reais(s.limite, { centavos: false }).replace(/R\$\s*/, '')}</small></span></span>
+            ${progresso(gasto / s.limite, estadoLimite(gasto / s.limite), `${c}: ${pct(gasto / s.limite)} do limite`)}
           </button></li>`;
       }).join('')}</ul>
+      ${semLimite.length ? `
+        <button type="button" class="linha-abrir" id="abrir-sem-limite" aria-expanded="${semLimiteAberto}">
+          <span><small>${semLimite.length === 1 ? '1 categoria sem limite' : `${semLimite.length} categorias sem limite`}</small></span>${ICONES.avancar}
+        </button>
+        <ul class="lista-limites" ${semLimiteAberto ? '' : 'hidden'}>${semLimite.map((c) => `
+          <li><button type="button" class="limite-linha sem" data-cat="${esc(c)}"><span>${esc(c)}</span><span class="definir">Definir</span></button></li>`).join('')}</ul>` : ''}
     </section>
 
     <section class="cartao">
-      <div class="cartao-topo"><h2>Metas de economia</h2>
-        <button type="button" class="chip-acao" id="nova-meta">${ICONES.mais}Nova meta</button></div>
-      ${mediaSobra !== null ? `<p class="dica">Nos últimos meses sobraram, em média, <b class="${mediaSobra < 0 ? 'negativo' : 'positivo'}">${reais(mediaSobra, { centavos: false })}</b> por mês.</p>` : ''}
+      <div class="cartao-topo"><h2>Guardar dinheiro</h2>
+        <button type="button" class="btn-mais" id="nova-meta" aria-label="Nova meta">${ICONES.mais}</button></div>
       ${metas.length ? `<ul class="lista-metas">${metas.map((m) => {
         const p = planoMeta(m, hoje);
-        let detalhe = p.concluida ? '🎉 Meta alcançada!' : `Faltam ${reais(p.falta, { centavos: false })}`;
-        if (!p.concluida && p.porMes) detalhe += ` · guarde ${reais(p.porMes, { centavos: false })}/mês até ${m.prazo.split('-').reverse().join('/')}`;
+        let detalhe = p.concluida ? 'Meta alcançada' : `Faltam ${reais(p.falta, { centavos: false })}`;
+        if (!p.concluida && p.porMes) detalhe = `${reais(p.porMes, { centavos: false })} por mês até ${m.prazo.split('-').reverse().join('/')}`;
         return `
           <li class="meta-linha" data-id="${m.id}">
-            <div class="meta-topo"><b>${esc(m.nome)}</b><span>${reais(m.valor_atual, { centavos: false })} <small>de ${reais(m.valor_alvo, { centavos: false })}</small></span></div>
+            <button type="button" class="meta-topo editar-meta" style="border:0;background:none;padding:0;text-align:left;width:100%">
+              <b>${esc(m.nome)}</b><span class="valor">${reais(m.valor_atual, { centavos: false })} <small>de ${reais(m.valor_alvo, { centavos: false }).replace(/R\$\s*/, '')}</small></span></button>
             ${progresso(p.pct, 'meta', `${m.nome}: ${pct(p.pct)}`)}
             <div class="meta-rodape"><span class="dica-inline">${detalhe}</span>
-              <span class="meta-acoes">
-                <button type="button" class="link editar-meta">Editar</button>
-                ${p.concluida ? '' : '<button type="button" class="chip-acao pequeno guardar-meta">Guardar</button>'}
-              </span></div>
+              ${p.concluida ? '' : '<button type="button" class="link guardar-meta">Guardar</button>'}</div>
           </li>`;
-      }).join('')}</ul>` : '<p class="vazio">Nenhuma meta ainda. Que tal uma reserva de emergência ou uma viagem?</p>'}
-    </section>`;
+      }).join('')}</ul>` : '<p class="vazio">Nenhuma meta ainda.</p>'}
+    </section>
+
+    ${cardCartoes(app)}`;
 
   ligarContas(raiz, app);
   ligarCartoes(raiz, app);
   $$('.limite-linha', raiz).forEach((b) => b.addEventListener('click', () => editarLimite(b.dataset.cat, app)));
+  $('#abrir-sem-limite', raiz)?.addEventListener('click', () => {
+    semLimiteAberto = !semLimiteAberto;
+    app.render();
+  });
   $('#nova-meta', raiz).addEventListener('click', () => editarMeta(null, app));
   $$('.meta-linha', raiz).forEach((el) => {
     const meta = metas.find((m) => m.id === el.dataset.id);

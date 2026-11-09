@@ -39,18 +39,16 @@ const app = {
       if (ativa) b.setAttribute('aria-current', 'page');
       else b.removeAttribute('aria-current');
     });
-    $('#titulo-aba').textContent = app.aba === 'inicio' ? saudacao() : ABAS[app.aba].nome;
+    $('#titulo-aba').textContent = app.aba === 'inicio' ? nomeDoMes() : ABAS[app.aba].nome;
+    $('#app').classList.toggle('com-campo', app.aba === 'inicio');
     app.render();
     if (rolar) window.scrollTo({ top: 0 });
   },
 };
 
-function saudacao() {
-  const h = new Date().getHours();
-  if (h < 5) return 'Boa noite';
-  if (h < 12) return 'Bom dia';
-  if (h < 18) return 'Boa tarde';
-  return 'Boa noite';
+function nomeDoMes() {
+  const nome = new Date().toLocaleDateString('pt-BR', { month: 'long' });
+  return nome.charAt(0).toUpperCase() + nome.slice(1);
 }
 
 // ---------------------------------------------------------------- Navegação
@@ -103,7 +101,7 @@ function abrirAjustes() {
     </div>
     <h3 class="sec-titulo">Aplicativo</h3>
     ${blocoInstalar()}
-    <p class="versao">Tio Patinhas · versão 3.2</p>`, (folha, fechar) => {
+    <p class="versao">Tio Patinhas · versão 4.0</p>`, (folha, fechar) => {
     $('#instalar-ajustes', folha)?.addEventListener('click', async () => {
       fechar();
       await instalar();

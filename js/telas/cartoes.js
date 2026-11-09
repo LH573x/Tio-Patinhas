@@ -1,8 +1,7 @@
 // Cartões de crédito: cadastro (em Metas) e faturas (no Painel).
 import { faturasCartoes, rotuloVencimento, diasEntre, iso } from '../analise.js';
 import { store } from '../store.js';
-import { $, $$, esc, reais, reaisGrande, abrirFolha, confirmar, aviso, lerNumero, numeroParaCampo, ICONES, selo, dataCurta, pct } from '../util.js';
-import { progresso, estadoLimite } from '../graficos.js';
+import { $, $$, esc, reais, abrirFolha, confirmar, aviso, lerNumero, numeroParaCampo, ICONES, dataCurta } from '../util.js';
 import { linhaRegistro, ligarRegistros } from './registro.js';
 
 /** Opções de cartão para um <select>. */
@@ -21,18 +20,17 @@ export function cardCartoes() {
   const cartoes = store.cartoes();
   return `
     <section class="cartao" id="cartoes">
-      <div class="cartao-topo"><h2>Cartões de crédito</h2>
-        <button type="button" class="chip-acao" id="novo-cartao">${ICONES.mais}Novo cartão</button></div>
+      <div class="cartao-topo"><h2>Cartões</h2>
+        <button type="button" class="btn-mais" id="novo-cartao" aria-label="Novo cartão">${ICONES.mais}</button></div>
       ${cartoes.length ? `<ul class="lista-contas">${cartoes.map((c) => `
         <li class="conta-linha" data-id="${c.id}">
           <button type="button" class="conta-info editar-cartao">
-            <span class="conta-nome">${ICONES.cartao}${esc(c.nome)}</span>
-            <span class="conta-detalhe">fecha dia ${c.dia_fechamento} · vence dia ${c.dia_vencimento}</span>
+            <span class="conta-nome">${esc(c.nome)}</span>
+            <span class="conta-detalhe">Fecha dia ${c.dia_fechamento} · vence dia ${c.dia_vencimento}</span>
           </button>
-          <span class="conta-lado">${c.limite ? `<b>${reais(c.limite, { centavos: false })}</b><small>limite</small>` : '<small>sem limite</small>'}</span>
-        </li>`).join('')}</ul>
-        <p class="dica">Escreva o nome do cartão no gasto (ex.: “mercado 200 ${esc(cartoes[0].nome.toLowerCase())}”) e a fatura se monta sozinha no Painel.</p>`
-        : '<p class="vazio">Cadastre seus cartões com o dia de fechamento e de vencimento. Eu monto a fatura de cada um com os gastos no crédito e as parcelas.</p>'}
+          <span class="conta-lado leve">${c.limite ? reais(c.limite, { centavos: false }) : ''}</span>
+        </li>`).join('')}</ul>`
+        : '<p class="vazio">Nenhum cartão cadastrado.</p>'}
     </section>`;
 }
 
@@ -92,7 +90,7 @@ function editarCartao(cartao, app) {
 }
 
 // ---------------------------------------------------------------- Faturas (tela Painel)
-export function cardFaturas(app) {
+export function cardFaturas() {
   const cartoes = store.cartoes();
   if (!cartoes.length) return '';
   const hoje = new Date();
@@ -101,26 +99,18 @@ export function cardFaturas(app) {
   const total = faturas.reduce((t, f) => t + f.atual.valor, 0);
   return `
     <section class="cartao faturas">
-      <div class="cartao-topo"><h2>Faturas <span class="sub">${cartoes.length} ${cartoes.length === 1 ? 'cartão' : 'cartões'}</span></h2></div>
-      <div class="valor-medio">${reaisGrande(total)}</div>
-      <p class="dica sem-margem">a pagar nas próximas faturas de cada cartão</p>
-      <ul class="lista-faturas">${faturas.map((f) => {
+      <div class="cartao-topo"><h2>Faturas</h2><span class="total">${reais(total)}</span></div>
+      <ul class="lista-contas">${faturas.map((f) => {
         const dias = diasEntre(hojeS, f.atual.vencimento);
-        const tipoSelo = dias <= 0 ? 'estourou' : dias <= 5 ? 'atencao' : 'neutro';
         const situacao = f.atual.fechada
-          ? selo(rotuloVencimento(dias, { diaDoMes: Number(f.atual.vencimento.slice(8)) }), tipoSelo)
-          : selo(`Fecha ${dataCurta(f.atual.fechamento)}`, 'destaque');
-        const usoLimite = f.cartao.limite ? f.usado / f.cartao.limite : null;
+          ? `<span class="conta-detalhe ${dias <= 1 ? 'alerta-texto' : ''}">${rotuloVencimento(dias, { diaDoMes: Number(f.atual.vencimento.slice(8)) })}</span>`
+          : `<span class="conta-detalhe">Fecha ${dataCurta(f.atual.fechamento)} · vence ${dataCurta(f.atual.vencimento)}</span>`;
         return `
-          <li class="fatura" data-id="${f.cartao.id}">
-            <button type="button" class="fatura-topo">
-              <span class="fatura-nome">${ICONES.cartao}<b>${esc(f.cartao.nome)}</b></span>
-              <b class="fatura-valor">${reais(f.atual.valor)}</b>
+          <li class="conta-linha fatura" data-id="${f.cartao.id}">
+            <button type="button" class="conta-info fatura-topo">
+              <span class="conta-nome">${esc(f.cartao.nome)}</span>${situacao}
             </button>
-            <div class="fatura-linha">${situacao}<span class="dica-inline">vence ${dataCurta(f.atual.vencimento)}${f.proxima ? ` · próxima ${reais(f.proxima.valor, { centavos: false })}` : ''}</span></div>
-            ${usoLimite !== null ? `
-              ${progresso(usoLimite, estadoLimite(usoLimite), `${f.cartao.nome}: ${pct(usoLimite)} do limite usado`, { marca: true })}
-              <div class="fatura-limite"><span>${pct(usoLimite)} do limite usado</span><span>${f.disponivel < 0 ? `${reais(-f.disponivel, { centavos: false })} acima` : `${reais(f.disponivel, { centavos: false })} disponível`}</span></div>` : ''}
+            <span class="conta-lado">${reais(f.atual.valor)}</span>
           </li>`;
       }).join('')}</ul>
     </section>`;

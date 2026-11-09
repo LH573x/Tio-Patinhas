@@ -210,7 +210,7 @@ export function cardCaixa(app) {
   return `
     <section class="cartao">
       <div class="cartao-topo"><h2>Caixa de entrada</h2>
-        ${pendentes.length ? `<span class="dica">o assessor lê de madrugada</span>` : ''}</div>
+</div>
       <ul class="caixa-lista">${[...pendentes, ...recentes].map(linha).join('')}</ul>
     </section>`;
 }

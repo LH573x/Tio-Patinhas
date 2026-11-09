@@ -1,11 +1,11 @@
-// Tela inicial: resumo do mês, registro rápido, caixa de entrada, ontem e hoje.
+// Tela inicial: número do mês, o que vence, hoje e ontem, e o campo de registrar fixo no pé.
 import { interpretar, gerarLancamentos, CATEGORIAS_GASTO, CATEGORIAS_ENTRADA, METODOS } from '../parser.js';
-import { resumoMes, resumoSemana, statusLimites, nomeMes, mesDe, iso, somarMesesMes, avisosDoDia } from '../analise.js';
+import { resumoMes, statusLimites, mesDe, iso, statusContas, faturasCartoes, diasEntre, rotuloVencimento } from '../analise.js';
 import { store } from '../store.js';
-import { $, esc, reais, reaisGrande, pct, hojeISO, horaAgora, dataCurta, aviso, avisoBanco, ICONES } from '../util.js';
+import { $, esc, reais, valorHero, hojeISO, horaAgora, dataCurta, aviso, avisoBanco, ICONES } from '../util.js';
 import { progresso, estadoLimite } from '../graficos.js';
-import { linhaRegistro, ligarRegistros, bolinha } from './registro.js';
-import { enviarCupom, enviarExtrato, cardCaixa, ligarCaixa } from './anexos.js';
+import { linhaRegistro, ligarRegistros } from './registro.js';
+import { enviarCupom, cardCaixa, ligarCaixa } from './anexos.js';
 import { pagarConta } from './contas.js';
 import { opcoesCartao, cartaoPadrao } from './cartoes.js';
 import { avisoLimite } from './alertas.js';
@@ -18,78 +18,75 @@ function opcoes(lista, atual) {
   return lista.map((o) => `<option ${o === atual ? 'selected' : ''}>${esc(o)}</option>`).join('');
 }
 
-function cardMes(app) {
+function cardMes() {
   const hoje = new Date();
   const mes = mesDe(iso(hoje));
   const r = resumoMes(store.listar(), mes, hoje, { contas: store.contas() });
   const limites = statusLimites(store.listar(), store.orcamentos(), mes, hoje);
   const planejado = limites.reduce((s, l) => s + l.limite, 0);
-  let comparacao = '';
-  if (r.variacao !== null) {
-    const subiu = r.variacao > 0;
-    comparacao = `<span class="variacao ${subiu ? 'subiu' : 'caiu'}">${subiu ? '↑' : '↓'} ${pct(Math.abs(r.variacao))}</span>
-      <span class="dica-inline">vs. ${nomeMes(somarMesesMes(mes, -1), { ano: false })} até o dia ${r.dia}</span>`;
-  }
+  const sobra = planejado - r.gasto;
   return `
-    <section class="cartao destaque-mes">
-      <div class="rotulo-mes">Gastos em ${nomeMes(mes, { ano: false })}</div>
-      <div class="valor-grande">${reaisGrande(r.gasto)}</div>
+    <section class="destaque-mes">
+      <div class="rotulo-mes">Gastos do mês</div>
+      <div class="valor-grande">${valorHero(r.gasto)}</div>
       ${planejado > 0 ? `
-        ${progresso(r.gasto / planejado, estadoLimite(r.gasto / planejado), 'Gasto em relação ao planejado', { marca: true })}
-        <div class="linha-pequena">de ${reais(planejado, { centavos: false })} planejados · sobram <b>${reais(Math.max(planejado - r.gasto, 0), { centavos: false })}</b></div>`
-        : `<div class="linha-pequena"><button type="button" class="link" data-ir="metas">Definir limites por categoria</button></div>`}
-      <div class="mini-kpis">
-        <div><span>Entradas</span><b class="positivo">${reais(r.entrada, { centavos: false })}</b></div>
-        <div><span>Saldo</span><b class="${r.saldo < 0 ? 'negativo' : ''}">${reais(r.saldo, { centavos: false })}</b></div>
-        <div><span>Previsão do mês</span><b>${reais(r.projecao, { centavos: false })}</b></div>
-      </div>
-      ${comparacao ? `<div class="linha-pequena">${comparacao}</div>` : ''}
+        ${progresso(r.gasto / planejado, estadoLimite(r.gasto / planejado), 'Gasto em relação ao planejado')}
+        <div class="linha-pequena"><span>Planejado ${reais(planejado, { centavos: false })}</span>
+          ${sobra >= 0 ? `<span>Sobram <b>${reais(sobra, { centavos: false })}</b></span>`
+            : `<b class="estourou-texto">${reais(-sobra, { centavos: false })} acima</b>`}</div>`
+        : `<div class="linha-pequena"><button type="button" class="link" data-ir="metas">Definir quanto quer gastar</button></div>`}
     </section>`;
 }
 
-const ICONE_AVISO = { conta: 'calendario', fatura: 'cartao', limite: 'alerta', ritmo: 'ok', caixa: 'arquivo' };
-
-function cardDia() {
-  const caixaPendentes = store.caixa().filter((c) => c.status === 'pendente').length;
-  const avisos = avisosDoDia({ registros: store.listar(), orcamentos: store.orcamentos(), contas: store.contas(),
-    cartoes: store.cartoes(), caixaPendentes, hoje: new Date() });
-  const semNada = !store.contas().length && !store.cartoes().length && !store.orcamentos().length;
+/** Contas fixas e faturas que vencem nos próximos dias. */
+function cardPagar() {
+  const hoje = new Date();
+  const hojeS = iso(hoje);
+  const itens = [];
+  for (const s of statusContas(store.contas(), store.listar(), hoje)) {
+    if (s.pagamento || s.dias > 3) continue;
+    itens.push({ tipo: 'conta', id: s.conta.id, nome: s.conta.nome, valor: s.conta.valor, dias: s.dias });
+  }
+  for (const f of faturasCartoes(store.listar(), store.cartoes(), hoje)) {
+    if (!f.atual.fechada || f.atual.valor <= 0) continue;
+    const dias = diasEntre(hojeS, f.atual.vencimento);
+    if (dias > 5) continue;
+    itens.push({ tipo: 'fatura', nome: `Fatura ${f.cartao.nome}`, valor: f.atual.valor, dias });
+  }
+  if (!itens.length) return '';
+  itens.sort((a, b) => a.dias - b.dias);
   return `
-    <section class="cartao dia">
-      <div class="cartao-topo"><h2>Seu dia</h2><span class="dica-inline">${diaPorExtenso()}</span></div>
-      ${avisos.length ? `<ul class="avisos-dia">${avisos.map((a) => `
-        <li class="aviso-dia ${a.tom}">
-          <span class="aviso-icone" aria-hidden="true">${ICONES[a.tom === 'estourou' && a.tipo === 'ritmo' ? 'alerta' : ICONE_AVISO[a.tipo]]}</span>
-          <span class="aviso-texto">${esc(a.texto)}${a.valor ? `<small>${esc(a.valor)}</small>` : ''}</span>
-          ${a.tipo === 'conta' ? `<button type="button" class="chip-acao pequeno pagar-aviso" data-conta="${a.id}">Paguei</button>` : ''}
-          ${a.tipo === 'fatura' ? '<button type="button" class="link" data-ir="painel">Ver</button>' : ''}
-        </li>`).join('')}</ul>`
-        : `<p class="vazio">Tudo certo por hoje. ${semNada ? '<button type="button" class="link" data-ir="metas">Cadastrar contas e cartões</button>' : ''}</p>`}
+    <section class="cartao pagar">
+      <div class="cartao-topo"><h2>A pagar</h2></div>
+      <ul class="lista-contas">${itens.map((it) => `
+        <li class="conta-linha">
+          ${it.tipo === 'conta'
+            ? `<button type="button" class="marcar pagar-aviso" data-conta="${it.id}" aria-label="Marcar ${esc(it.nome)} como paga"></button>`
+            : `<span class="marcar-icone" aria-hidden="true">${ICONES.cartao}</span>`}
+          <button type="button" class="conta-info" ${it.tipo === 'conta' ? `data-conta="${it.id}"` : 'data-ir="painel"'}>
+            <span class="conta-nome">${esc(it.nome)}</span>
+            <span class="conta-detalhe ${it.dias <= 0 ? 'alerta-texto' : ''}">${rotuloVencimento(it.dias)}</span>
+          </button>
+          <span class="conta-lado">${reais(it.valor)}</span>
+        </li>`).join('')}</ul>
     </section>`;
-}
-
-function diaPorExtenso() {
-  return new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
 function cardRegistrar() {
   return `
-    <section class="cartao registrar">
+    <section class="registrar">
       <form id="form-registro" autocomplete="off">
-        <label for="frase" class="rotulo">O que você comprou?</label>
-        <div class="linha-entrada">
-          <input id="frase" type="text" enterkeyhint="send" placeholder="salgado 8,50 pix" value="${esc(textoDigitado)}">
-          <button type="submit" class="btn-enviar" aria-label="Registrar">${ICONES.enviar}</button>
-        </div>
         <div id="previa" class="previa" hidden></div>
-        <p class="dica">Toque no 🎤 do teclado pra falar. Ex.: “gasolina 200 crédito”, “tênis 600 em 3x”, “recebi salário 3500”.</p>
+        <div class="linha-entrada">
+          <input id="frase" type="text" enterkeyhint="send" placeholder="O que você comprou?" aria-label="O que você comprou? Ex.: salgado 8,50 pix" value="${esc(textoDigitado)}">
+          <button type="button" class="icone-btn" id="btn-cupom" aria-label="Foto do cupom">${ICONES.camera}</button>
+          <button type="submit" class="btn-enviar" aria-label="Registrar">${ICONES.subir}</button>
+        </div>
       </form>
-      <div class="anexos">
-        <button type="button" class="chip-acao" id="btn-cupom">${ICONES.camera}Foto do cupom</button>
-        <button type="button" class="chip-acao" id="btn-extrato">${ICONES.importar}Extrato do banco</button>
-      </div>
     </section>`;
 }
+
+let ontemAberto = false;
 
 function cardOntem(app) {
   const ontem = hojeISO(-1);
@@ -97,29 +94,13 @@ function cardOntem(app) {
   if (!regs.length) return '';
   const total = regs.filter((r) => r.tipo === 'gasto').reduce((s, r) => s + r.valor, 0);
   return `
-    <section class="cartao">
-      <div class="cartao-topo"><h2>Revisar ontem <span class="sub">${dataCurta(ontem)}</span></h2><b>${reais(total)}</b></div>
-      <p class="dica">Toque num item pra corrigir. Se mudar a categoria, eu aprendo.</p>
-      <div class="lista-registros">${regs.map((r) => linhaRegistro(r, app)).join('')}</div>
-    </section>`;
-}
-
-function cardSemana(app) {
-  const hoje = new Date();
-  const dia = hoje.getDay(); // mostra na segunda e na terça
-  if (dia !== 1 && dia !== 2) return '';
-  const s = resumoSemana(store.listar(), hoje);
-  if (!s.total) return '';
-  const variacao = s.variacao === null ? ''
-    : `<span class="variacao ${s.variacao > 0 ? 'subiu' : 'caiu'}">${s.variacao > 0 ? '↑' : '↓'} ${pct(Math.abs(s.variacao))}</span> vs. semana anterior`;
-  return `
-    <section class="cartao semana">
-      <div class="cartao-topo"><h2>Sua semana <span class="sub">${dataCurta(s.inicio)} a ${dataCurta(s.fim)}</span></h2><b>${reais(s.total)}</b></div>
-      ${variacao ? `<p class="linha-pequena">${variacao}</p>` : ''}
-      <ul class="lista-cats">${s.categorias.slice(0, 3).map((c) => `
-        <li>${bolinha(c.categoria, app)}<span>${esc(c.categoria)}</span><b>${reais(c.valor)}</b></li>`).join('')}</ul>
-      <button type="button" class="link" data-ir="painel">Ver painel completo</button>
-    </section>`;
+    <div class="ontem">
+      <button type="button" class="linha-abrir" id="abrir-ontem" aria-expanded="${ontemAberto}">
+        <span>Ontem <small>· ${regs.length} ${regs.length === 1 ? 'registro' : 'registros'}</small></span>
+        <small>${reais(total)}</small>${ICONES.avancar}
+      </button>
+      <div class="lista-registros" ${ontemAberto ? '' : 'hidden'}>${regs.map((r) => linhaRegistro(r, app)).join('')}</div>
+    </div>`;
 }
 
 function cardHoje(app) {
@@ -128,8 +109,9 @@ function cardHoje(app) {
   const total = regs.filter((r) => r.tipo === 'gasto').reduce((s, r) => s + r.valor, 0);
   return `
     <section class="cartao">
-      <div class="cartao-topo"><h2>Hoje</h2><b>${reais(total)}</b></div>
-      <div class="lista-registros">${regs.length ? regs.map((r) => linhaRegistro(r, app)).join('') : '<p class="vazio">Nada por aqui ainda. Quando gastar, é só escrever acima.</p>'}</div>
+      <div class="cartao-topo"><h2>Hoje</h2>${regs.length ? `<span class="total">${reais(total)}</span>` : ''}</div>
+      <div class="lista-registros">${regs.length ? regs.map((r) => linhaRegistro(r, app)).join('') : '<p class="vazio">Nada por aqui ainda.</p>'}</div>
+      ${cardOntem(app)}
     </section>`;
 }
 
@@ -245,19 +227,22 @@ async function registrar(app) {
 }
 
 export function telaInicio(raiz, app) {
-  raiz.innerHTML = [avisoBanco(store.bancoDesatualizado), cardMes(app), cardDia(), cardRegistrar(), cardCaixa(app), cardSemana(app), cardOntem(app), cardHoje(app)].join('');
+  raiz.innerHTML = [avisoBanco(store.bancoDesatualizado), cardMes(), cardPagar(), cardCaixa(app), cardHoje(app), cardRegistrar()].join('');
   $('#frase', raiz).addEventListener('input', renderPrevia);
   $('#form-registro', raiz).addEventListener('submit', (e) => {
     e.preventDefault();
     registrar(app);
   });
   $('#btn-cupom', raiz).addEventListener('click', () => enviarCupom(app));
-  $('#btn-extrato', raiz).addEventListener('click', () => enviarExtrato(app));
   if (textoDigitado) renderPrevia();
   ligarRegistros(raiz, app);
   ligarCaixa(raiz, app);
-  raiz.querySelectorAll('.pagar-aviso').forEach((b) => b.addEventListener('click', () => {
+  raiz.querySelectorAll('[data-conta]').forEach((b) => b.addEventListener('click', () => {
     const conta = store.contas().find((c) => c.id === b.dataset.conta);
     if (conta) pagarConta(conta, app);
   }));
+  $('#abrir-ontem', raiz)?.addEventListener('click', () => {
+    ontemAberto = !ontemAberto;
+    app.render();
+  });
 }

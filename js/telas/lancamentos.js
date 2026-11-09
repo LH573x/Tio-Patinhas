@@ -46,7 +46,7 @@ export function telaLancamentos(raiz, app) {
   raiz.innerHTML = `
     <div class="barra-ferramentas">
       ${seletorMes(app.mes)}
-      <button type="button" class="chip-acao" id="btn-importar">${ICONES.importar}Importar extrato</button>
+      <button type="button" class="chip-acao" id="btn-importar">${ICONES.importar}Extrato</button>
     </div>
     <label class="busca">${ICONES.busca}<input type="search" id="busca" placeholder="Buscar (ex.: gasolina, pix, padaria)" value="${esc(estado.busca)}"></label>
     ${cats.length > 1 ? `<div class="chips-filtro" role="group" aria-label="Filtrar por categoria">
@@ -63,9 +63,9 @@ export function telaLancamentos(raiz, app) {
       return `
         <section class="grupo-dia">
           <div class="grupo-topo"><h3>${rotuloDia(data)}</h3><span>${reais(totalDia)}</span></div>
-          <div class="cartao lista-registros">${regs.map((r) => linhaRegistro(r, app)).join('')}</div>
+          <div class="lista-registros">${regs.map((r) => linhaRegistro(r, app)).join('')}</div>
         </section>`;
-    }).join('') : `<div class="cartao vazio-grande">${todos.length ? 'Nada encontrado com esse filtro.' : 'Nenhum registro neste mês.'}</div>`}`;
+    }).join('') : `<div class="vazio-grande">${todos.length ? 'Nada encontrado com esse filtro.' : 'Nenhum registro neste mês.'}</div>`}`;
 
   ligarSeletorMes(raiz, app);
   ligarRegistros(raiz, app);

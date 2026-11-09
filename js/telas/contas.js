@@ -2,10 +2,8 @@
 import { CATEGORIAS_GASTO, METODOS } from '../parser.js';
 import { statusContas, rotuloVencimento, refConta, mesDe } from '../analise.js';
 import { store } from '../store.js';
-import { $, $$, esc, reais, abrirFolha, confirmar, aviso, lerNumero, numeroParaCampo, ICONES, selo, hojeISO, horaAgora, dataCurta } from '../util.js';
+import { $, $$, esc, reais, abrirFolha, confirmar, aviso, lerNumero, numeroParaCampo, ICONES, hojeISO, horaAgora, dataCurta } from '../util.js';
 import { avisoLimite } from './alertas.js';
-
-const SELO_CONTA = { paga: 'ok', atrasada: 'estourou', hoje: 'atencao', breve: 'atencao', futura: 'neutro' };
 
 function opcoes(lista, atual) {
   return lista.map((o) => `<option ${o === atual ? 'selected' : ''}>${esc(o)}</option>`).join('');
@@ -13,28 +11,27 @@ function opcoes(lista, atual) {
 
 export function cardContas() {
   const status = statusContas(store.contas(), store.listar(), new Date());
-  const total = status.reduce((t, s) => t + s.conta.valor, 0);
   const falta = status.filter((s) => !s.pagamento).reduce((t, s) => t + s.conta.valor, 0);
+  // Primeiro as que faltam pagar, depois as pagas
+  const ordem = [...status.filter((s) => !s.pagamento), ...status.filter((s) => s.pagamento)];
   return `
     <section class="cartao" id="contas">
-      <div class="cartao-topo"><h2>Contas fixas</h2>
-        <button type="button" class="chip-acao" id="nova-conta">${ICONES.mais}Nova conta</button></div>
+      <div class="cartao-topo"><h2>Contas fixas${status.length ? `<span class="sub">${falta > 0 ? `faltam ${reais(falta)}` : 'tudo pago'}</span>` : ''}</h2>
+        <button type="button" class="btn-mais" id="nova-conta" aria-label="Nova conta fixa">${ICONES.mais}</button></div>
       ${status.length ? `
-        <p class="dica">${falta > 0 ? `Faltam <b>${reais(falta)}</b> de ${reais(total)} este mês.` : `Tudo pago este mês (${reais(total)}).`}</p>
-        <ul class="lista-contas">${status.map((s) => `
-          <li class="conta-linha" data-id="${s.conta.id}">
+        <ul class="lista-contas">${ordem.map((s) => `
+          <li class="conta-linha ${s.pagamento ? 'paga' : ''}" data-id="${s.conta.id}">
+            ${s.pagamento
+              ? `<span class="marcado" role="img" aria-label="Paga">${ICONES.ok}</span>`
+              : `<button type="button" class="marcar pagar-conta" aria-label="Marcar ${esc(s.conta.nome)} como paga"></button>`}
             <button type="button" class="conta-info editar-conta">
               <span class="conta-nome">${esc(s.conta.nome)}</span>
-              <span class="conta-detalhe">${s.pagamento ? `pago em ${dataCurta(s.pagamento.data)}` : `vence ${dataCurta(s.vencimento)}`}${s.conta.metodo ? ` · ${esc(s.conta.metodo)}` : ''}</span>
+              <span class="conta-detalhe ${!s.pagamento && s.dias <= 0 ? 'alerta-texto' : ''}">${s.pagamento ? `Paga em ${dataCurta(s.pagamento.data)}`
+                : s.dias <= 1 ? rotuloVencimento(s.dias) : `Vence ${dataCurta(s.vencimento)}`}${s.conta.metodo ? ` · ${esc(s.conta.metodo)}` : ''}</span>
             </button>
-            <span class="conta-lado">
-              <b>${reais(s.pagamento ? s.pagamento.valor : s.conta.valor)}</b>
-              ${s.pagamento ? selo('Paga', 'ok')
-                : `${selo(rotuloVencimento(s.dias, { diaDoMes: Number(s.vencimento.slice(8)) }), SELO_CONTA[s.estado])}`}
-            </span>
-            ${s.pagamento ? '' : '<button type="button" class="chip-acao pequeno pagar-conta">Paguei</button>'}
+            <span class="conta-lado">${reais(s.pagamento ? s.pagamento.valor : s.conta.valor)}</span>
           </li>`).join('')}</ul>`
-        : '<p class="vazio">Cadastre aluguel, luz, internet e assinaturas. Eu aviso quando estiver perto do vencimento e já conto na previsão do mês.</p>'}
+        : '<p class="vazio">Nenhuma conta fixa ainda.</p>'}
     </section>`;
 }
 

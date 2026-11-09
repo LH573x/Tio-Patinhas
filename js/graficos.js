@@ -35,6 +35,17 @@ export function rosca(fatias, total, { rotulo = 'gastos', tamanho = 168 } = {}) 
 }
 
 /**
+ * Uma barra só, dividida pelas categorias (substitui a rosca).
+ * fatias: [{ categoria, valor, cor }]
+ */
+export function barraCategorias(fatias) {
+  const soma = fatias.reduce((s, f) => s + f.valor, 0) || 1;
+  return `<div class="barra-cats" role="img" aria-label="Divisão dos gastos por categoria">${fatias
+    .filter((f) => f.valor > 0)
+    .map((f) => `<i style="--cor:${f.cor};flex:${(f.valor / soma).toFixed(4)}" title="${esc(f.categoria)}: ${reais(f.valor)}"></i>`).join('')}</div>`;
+}
+
+/**
  * Barras dos últimos meses (uma série: gastos), com linha da média.
  * meses: [{ mes: 'YYYY-MM', gasto }], destaque: 'YYYY-MM'
  */
@@ -72,7 +83,7 @@ export function barrasMeses(meses, destaque) {
   });
   const linhaMedia = media > 0
     ? `<line x1="0" x2="${L}" y1="${y(media)}" y2="${y(media)}" class="linha-media"/>
-       <text x="${L}" y="${y(media) - 5}" text-anchor="end" class="eixo">média ${reais(media, { centavos: false })}</text>`
+       <text x="0" y="${y(media) - 5}" text-anchor="start" class="eixo">média ${reais(media, { centavos: false })}</text>`
     : '';
   return `
     <svg class="barras" viewBox="0 0 ${L} ${A}" preserveAspectRatio="xMidYMid meet" role="img"
