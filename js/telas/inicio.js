@@ -1,11 +1,14 @@
 // Tela inicial: resumo do mês, registro rápido, caixa de entrada, ontem e hoje.
 import { interpretar, gerarLancamentos, CATEGORIAS_GASTO, CATEGORIAS_ENTRADA, METODOS } from '../parser.js';
-import { resumoMes, resumoSemana, statusLimites, nomeMes, mesDe, iso, somarMesesMes } from '../analise.js';
+import { resumoMes, resumoSemana, statusLimites, nomeMes, mesDe, iso, somarMesesMes, avisosDoDia } from '../analise.js';
 import { store } from '../store.js';
-import { $, esc, reais, pct, hojeISO, horaAgora, dataCurta, aviso, avisoBanco, ICONES } from '../util.js';
-import { progresso } from '../graficos.js';
+import { $, esc, reais, reaisGrande, pct, hojeISO, horaAgora, dataCurta, aviso, avisoBanco, ICONES } from '../util.js';
+import { progresso, estadoLimite } from '../graficos.js';
 import { linhaRegistro, ligarRegistros, bolinha } from './registro.js';
 import { enviarCupom, enviarExtrato, cardCaixa, ligarCaixa } from './anexos.js';
+import { pagarConta } from './contas.js';
+import { opcoesCartao, cartaoPadrao } from './cartoes.js';
+import { avisoLimite } from './alertas.js';
 
 let previa = null;
 let salvando = false;
@@ -18,7 +21,7 @@ function opcoes(lista, atual) {
 function cardMes(app) {
   const hoje = new Date();
   const mes = mesDe(iso(hoje));
-  const r = resumoMes(store.listar(), mes, hoje);
+  const r = resumoMes(store.listar(), mes, hoje, { contas: store.contas() });
   const limites = statusLimites(store.listar(), store.orcamentos(), mes, hoje);
   const planejado = limites.reduce((s, l) => s + l.limite, 0);
   let comparacao = '';
@@ -30,9 +33,9 @@ function cardMes(app) {
   return `
     <section class="cartao destaque-mes">
       <div class="rotulo-mes">Gastos em ${nomeMes(mes, { ano: false })}</div>
-      <div class="valor-grande">${reais(r.gasto)}</div>
+      <div class="valor-grande">${reaisGrande(r.gasto)}</div>
       ${planejado > 0 ? `
-        ${progresso(r.gasto / planejado, r.gasto > planejado ? 'estourou' : r.gasto / planejado > 0.8 ? 'atencao' : 'ok', 'Gasto em relação ao planejado')}
+        ${progresso(r.gasto / planejado, estadoLimite(r.gasto / planejado), 'Gasto em relação ao planejado', { marca: true })}
         <div class="linha-pequena">de ${reais(planejado, { centavos: false })} planejados · sobram <b>${reais(Math.max(planejado - r.gasto, 0), { centavos: false })}</b></div>`
         : `<div class="linha-pequena"><button type="button" class="link" data-ir="metas">Definir limites por categoria</button></div>`}
       <div class="mini-kpis">
@@ -42,6 +45,31 @@ function cardMes(app) {
       </div>
       ${comparacao ? `<div class="linha-pequena">${comparacao}</div>` : ''}
     </section>`;
+}
+
+const ICONE_AVISO = { conta: 'calendario', fatura: 'cartao', limite: 'alerta', ritmo: 'ok', caixa: 'arquivo' };
+
+function cardDia() {
+  const caixaPendentes = store.caixa().filter((c) => c.status === 'pendente').length;
+  const avisos = avisosDoDia({ registros: store.listar(), orcamentos: store.orcamentos(), contas: store.contas(),
+    cartoes: store.cartoes(), caixaPendentes, hoje: new Date() });
+  const semNada = !store.contas().length && !store.cartoes().length && !store.orcamentos().length;
+  return `
+    <section class="cartao dia">
+      <div class="cartao-topo"><h2>Seu dia</h2><span class="dica-inline">${diaPorExtenso()}</span></div>
+      ${avisos.length ? `<ul class="avisos-dia">${avisos.map((a) => `
+        <li class="aviso-dia ${a.tom}">
+          <span class="aviso-icone" aria-hidden="true">${ICONES[a.tom === 'estourou' && a.tipo === 'ritmo' ? 'alerta' : ICONE_AVISO[a.tipo]]}</span>
+          <span class="aviso-texto">${esc(a.texto)}${a.valor ? `<small>${esc(a.valor)}</small>` : ''}</span>
+          ${a.tipo === 'conta' ? `<button type="button" class="chip-acao pequeno pagar-aviso" data-conta="${a.id}">Paguei</button>` : ''}
+          ${a.tipo === 'fatura' ? '<button type="button" class="link" data-ir="painel">Ver</button>' : ''}
+        </li>`).join('')}</ul>`
+        : `<p class="vazio">Tudo certo por hoje. ${semNada ? '<button type="button" class="link" data-ir="metas">Cadastrar contas e cartões</button>' : ''}</p>`}
+    </section>`;
+}
+
+function diaPorExtenso() {
+  return new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
 function cardRegistrar() {
@@ -101,7 +129,7 @@ function cardHoje(app) {
   return `
     <section class="cartao">
       <div class="cartao-topo"><h2>Hoje</h2><b>${reais(total)}</b></div>
-      <div class="lista-registros">${regs.length ? regs.map((r) => linhaRegistro(r, app)).join('') : '<p class="vazio">Nada registrado hoje ainda.</p>'}</div>
+      <div class="lista-registros">${regs.length ? regs.map((r) => linhaRegistro(r, app)).join('') : '<p class="vazio">Nada por aqui ainda. Quando gastar, é só escrever acima.</p>'}</div>
     </section>`;
 }
 
@@ -117,7 +145,7 @@ function renderPrevia() {
     return;
   }
   const anterior = previa;
-  previa = interpretar(texto, { regras: store.regras() });
+  previa = interpretar(texto, { regras: store.regras(), cartoes: store.cartoes() });
   if (anterior && anterior.categoriaManual) {
     previa.categoria = anterior.categoria;
     previa.categoriaManual = true;
@@ -126,6 +154,15 @@ function renderPrevia() {
     previa.local = anterior.local;
     previa.localManual = true;
   }
+  if (anterior && anterior.cartaoManual) {
+    previa.cartaoId = anterior.cartaoId;
+    previa.cartaoManual = true;
+  }
+  if (anterior && anterior.metodoManual) {
+    previa.metodo = anterior.metodo;
+    previa.metodoManual = true;
+  }
+  if (previa.metodo === 'Crédito' && !previa.cartaoId) previa.cartaoId = cartaoPadrao();
   if (anterior && anterior.horaManual) {
     previa.hora = anterior.hora;
     previa.horaManual = true;
@@ -147,13 +184,24 @@ function renderPrevia() {
       <label class="campo">Categoria<select id="p-cat">${opcoes(cats, previa.categoria)}</select></label>
       <label class="campo">Pagamento<select id="p-metodo"><option value="">—</option>${opcoes(METODOS, previa.metodo)}</select></label>
     </div>
+    ${previa.metodo === 'Crédito' && store.cartoes().length > 1 ? `
+      <label class="campo">Cartão<select id="p-cartao">${opcoesCartao(previa.cartaoId)}</select></label>` : ''}
     <div class="dupla">
       <label class="campo">Local <input id="p-local" placeholder="opcional" value="${esc(previa.local || '')}" autocomplete="off"></label>
       <label class="campo">Horário <input id="p-hora" type="time" value="${previa.hora || ''}"></label>
     </div>
     ${previa.parcelas > 1 ? `<p class="dica">${previa.parcelas}x de ${reais(previa.valorParcela)}, uma por mês</p>` : ''}
     ${previa.data !== hojeISO() ? `<p class="dica">Data: ${dataCurta(previa.data)}</p>` : ''}`;
-  $('#p-metodo').addEventListener('change', (e) => { previa.metodo = e.target.value || null; });
+  $('#p-metodo').addEventListener('change', (e) => {
+    previa.metodo = e.target.value || null;
+    previa.metodoManual = true;
+    if (previa.metodo !== 'Crédito') previa.cartaoId = null;
+    renderPrevia(); // mostra ou esconde a escolha do cartão
+  });
+  $('#p-cartao')?.addEventListener('change', (e) => {
+    previa.cartaoId = e.target.value || null;
+    previa.cartaoManual = true;
+  });
   $('#p-local').addEventListener('input', (e) => {
     previa.local = e.target.value.trim() || null;
     previa.localManual = true;
@@ -175,13 +223,16 @@ async function registrar(app) {
     aviso('Coloque o valor, ex.: “salgado 8,50 pix”', 'erro');
     return;
   }
-  const { categoriaManual, localManual, horaManual, horaAutomatica, completo, ...reg } = previa;
+  const { categoriaManual, localManual, horaManual, horaAutomatica, cartaoManual, metodoManual, completo, ...reg } = previa;
+  if (reg.metodo !== 'Crédito') reg.cartaoId = null;
   if (horaAutomatica) reg.hora = horaAgora(); // hora de quando registrou de fato
   salvando = true;
   try {
     if (categoriaManual) await store.aprenderRegra(reg.item, reg.categoria);
-    await store.adicionar(gerarLancamentos({ ...reg, origem: 'texto' }));
-    aviso(`${reg.item} · ${reais(reg.valor)} · ${reg.categoria} ✓`);
+    const antes = store.listar();
+    const novos = gerarLancamentos({ ...reg, origem: 'texto' });
+    await store.adicionar(novos);
+    aviso([`${reg.item} · ${reais(reg.valor)} · ${reg.categoria} ✓`, avisoLimite(antes, novos)].filter(Boolean).join('\n'));
     textoDigitado = '';
     previa = null;
     app.render();
@@ -194,7 +245,7 @@ async function registrar(app) {
 }
 
 export function telaInicio(raiz, app) {
-  raiz.innerHTML = [avisoBanco(store.bancoDesatualizado), cardMes(app), cardRegistrar(), cardCaixa(app), cardSemana(app), cardOntem(app), cardHoje(app)].join('');
+  raiz.innerHTML = [avisoBanco(store.bancoDesatualizado), cardMes(app), cardDia(), cardRegistrar(), cardCaixa(app), cardSemana(app), cardOntem(app), cardHoje(app)].join('');
   $('#frase', raiz).addEventListener('input', renderPrevia);
   $('#form-registro', raiz).addEventListener('submit', (e) => {
     e.preventDefault();
@@ -205,4 +256,8 @@ export function telaInicio(raiz, app) {
   if (textoDigitado) renderPrevia();
   ligarRegistros(raiz, app);
   ligarCaixa(raiz, app);
+  raiz.querySelectorAll('.pagar-aviso').forEach((b) => b.addEventListener('click', () => {
+    const conta = store.contas().find((c) => c.id === b.dataset.conta);
+    if (conta) pagarConta(conta, app);
+  }));
 }

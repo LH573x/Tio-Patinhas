@@ -42,20 +42,32 @@ function paraBanco(r) {
     ref_externa: r.refExterna || null,
     local: r.local || null,
     hora: r.hora || null,
+    cartao_id: r.cartaoId || null,
   };
 }
 
-// Banco ainda sem as colunas local/hora: grava sem elas até o schema.sql ser rodado de novo.
-let semLocalHora = false;
+// Banco ainda sem colunas novas (local, hora, cartao_id): grava sem elas até o schema.sql ser rodado de novo.
+const COLUNAS_NOVAS = ['local', 'hora', 'cartao_id'];
+const colunasFaltando = new Set();
 function paraBancoCompat(r) {
   const b = paraBanco(r);
-  if (semLocalHora) {
-    delete b.local;
-    delete b.hora;
-  }
+  for (const c of colunasFaltando) delete b[c];
   return b;
 }
-const faltaLocalHora = (error) => /could not find the '(local|hora)' column|column .*(local|hora).* does not exist/i.test((error && error.message) || '');
+function colunaFaltando(error) {
+  const m = (error && error.message) || '';
+  return COLUNAS_NOVAS.find((c) => new RegExp(`could not find the '${c}' column|column .*${c}.* does not exist`, 'i').test(m)) || null;
+}
+// Tenta gravar; se faltar uma coluna nova no banco, tira a coluna e tenta de novo.
+async function gravarCompat(fazer) {
+  for (;;) {
+    const res = await fazer();
+    const falta = res.error && colunaFaltando(res.error);
+    if (!falta || colunasFaltando.has(falta)) return res;
+    colunasFaltando.add(falta);
+    store.bancoDesatualizado = true;
+  }
+}
 
 function doBanco(row) {
   return {
@@ -72,6 +84,7 @@ function doBanco(row) {
     refExterna: row.ref_externa || null,
     local: row.local || null,
     hora: row.hora ? String(row.hora).slice(0, 5) : null,
+    cartaoId: row.cartao_id || null,
     criadoEm: row.criado_em,
   };
 }
@@ -84,13 +97,21 @@ function erroLegivel(error) {
   if (/password should be at least/i.test(m)) return 'A senha precisa ter pelo menos 6 caracteres.';
   if (/signups not allowed/i.test(m)) return 'Novos cadastros estão desativados.';
   if (/failed to fetch|network/i.test(m)) return 'Sem conexão com a internet.';
-  if (/duplicate key|23505/i.test(m)) return 'Algumas transações já tinham sido importadas.';
+  if (/duplicate key|23505/i.test(m)) return 'Isso já tinha sido registrado antes.';
   if (/relation .* does not exist|could not find the table|schema cache/i.test(m)) {
     return 'O banco precisa ser atualizado: rode de novo o arquivo schema.sql no Supabase.';
   }
   if (/bucket not found/i.test(m)) return 'O banco precisa ser atualizado: rode de novo o arquivo schema.sql no Supabase.';
   if (/new password should be different/i.test(m)) return 'A nova senha precisa ser diferente da atual.';
   return m;
+}
+
+function numerosConta(c) {
+  return { ...c, valor: Number(c.valor), dia_vencimento: Number(c.dia_vencimento) };
+}
+
+function numerosCartao(c) {
+  return { ...c, dia_fechamento: Number(c.dia_fechamento), dia_vencimento: Number(c.dia_vencimento), limite: c.limite === null ? null : Number(c.limite) };
 }
 
 function numerosMeta(m) {
@@ -101,7 +122,7 @@ function falhar(error) {
   throw new Error(erroLegivel(error));
 }
 
-const VAZIO = () => ({ registros: [], regras: [], orcamentos: [], metas: [], caixa: [] });
+const VAZIO = () => ({ registros: [], regras: [], orcamentos: [], metas: [], caixa: [], contas: [], cartoes: [] });
 let cache = { ...VAZIO(), ...lerLocal(CHAVE_CACHE, {}) };
 let usuarioAtual = null;
 
@@ -149,15 +170,17 @@ export const store = {
       const { data, error } = await cliente
         .from('registros').select('*').order('data', { ascending: false }).range(de, de + passo - 1);
       if (error) falhar(error);
-      if (de === 0 && data.length && !('hora' in data[0])) semLocalHora = true;
+      if (de === 0 && data.length) for (const c of COLUNAS_NOVAS) if (!(c in data[0])) colunasFaltando.add(c);
       registros.push(...data.map(doBanco));
       if (data.length < passo) break;
     }
-    const [regras, orcamentos, metas, caixa] = await Promise.all([
+    const [regras, orcamentos, metas, caixa, contas, cartoes] = await Promise.all([
       cliente.from('regras').select('termo, categoria').order('criado_em', { ascending: false }),
       cliente.from('orcamentos').select('id, categoria, limite'),
       cliente.from('metas').select('*').order('criado_em'),
       cliente.from('caixa_entrada').select('*').order('criado_em', { ascending: false }).limit(30),
+      cliente.from('contas_fixas').select('*').order('dia_vencimento'),
+      cliente.from('cartoes').select('*').order('criado_em'),
     ]);
     if (regras.error) falhar(regras.error);
     cache = {
@@ -167,8 +190,10 @@ export const store = {
       orcamentos: orcamentos.error ? [] : orcamentos.data.map((o) => ({ ...o, limite: Number(o.limite) })),
       metas: metas.error ? [] : metas.data.map(numerosMeta),
       caixa: caixa.error ? [] : caixa.data,
+      contas: contas.error ? [] : contas.data.map(numerosConta),
+      cartoes: cartoes.error ? [] : cartoes.data.map(numerosCartao),
     };
-    this.bancoDesatualizado = Boolean(orcamentos.error || metas.error || caixa.error || semLocalHora);
+    this.bancoDesatualizado = Boolean(orcamentos.error || metas.error || caixa.error || contas.error || cartoes.error || colunasFaltando.size);
     salvarCache();
   },
   bancoDesatualizado: false,
@@ -179,23 +204,13 @@ export const store = {
     return cache.regras;
   },
   async adicionar(lancamentos) {
-    let { data, error } = await cliente.from('registros').insert(lancamentos.map(paraBancoCompat)).select();
-    if (error && faltaLocalHora(error) && !semLocalHora) {
-      semLocalHora = true;
-      this.bancoDesatualizado = true;
-      ({ data, error } = await cliente.from('registros').insert(lancamentos.map(paraBancoCompat)).select());
-    }
+    const { data, error } = await gravarCompat(() => cliente.from('registros').insert(lancamentos.map(paraBancoCompat)).select());
     if (error) falhar(error);
     cache.registros.push(...data.map(doBanco));
     salvarCache();
   },
   async atualizar(id, m) {
-    let { data, error } = await cliente.from('registros').update(paraBancoCompat(m)).eq('id', id).select().single();
-    if (error && faltaLocalHora(error) && !semLocalHora) {
-      semLocalHora = true;
-      this.bancoDesatualizado = true;
-      ({ data, error } = await cliente.from('registros').update(paraBancoCompat(m)).eq('id', id).select().single());
-    }
+    const { data, error } = await gravarCompat(() => cliente.from('registros').update(paraBancoCompat(m)).eq('id', id).select().single());
     if (error) falhar(error);
     cache.registros = cache.registros.map((r) => (r.id === id ? doBanco(data) : r));
     salvarCache();
@@ -253,6 +268,58 @@ export const store = {
     const { error } = await cliente.from('metas').delete().eq('id', id);
     if (error) falhar(error);
     cache.metas = cache.metas.filter((m) => m.id !== id);
+    salvarCache();
+  },
+
+  // ---------- Contas fixas ----------
+  contas() {
+    return cache.contas || [];
+  },
+  async salvarConta(conta) {
+    const campos = { nome: conta.nome, valor: conta.valor, dia_vencimento: conta.dia_vencimento, categoria: conta.categoria || 'Outros',
+      metodo: conta.metodo || null, ativa: conta.ativa !== false };
+    const consulta = conta.id
+      ? cliente.from('contas_fixas').update(campos).eq('id', conta.id).select().single()
+      : cliente.from('contas_fixas').insert(campos).select().single();
+    const { data, error } = await consulta;
+    if (error) falhar(error);
+    const salva = numerosConta(data);
+    const lista = this.contas();
+    cache.contas = conta.id ? lista.map((c) => (c.id === conta.id ? salva : c)) : [...lista, salva];
+    salvarCache();
+    return salva;
+  },
+  async removerConta(id) {
+    const { error } = await cliente.from('contas_fixas').delete().eq('id', id);
+    if (error) falhar(error);
+    cache.contas = this.contas().filter((c) => c.id !== id);
+    salvarCache();
+  },
+
+  // ---------- Cartões de crédito ----------
+  cartoes() {
+    return cache.cartoes || [];
+  },
+  async salvarCartao(cartao) {
+    const campos = { nome: cartao.nome, dia_fechamento: cartao.dia_fechamento, dia_vencimento: cartao.dia_vencimento,
+      limite: cartao.limite || null, cor: cartao.cor || null };
+    const consulta = cartao.id
+      ? cliente.from('cartoes').update(campos).eq('id', cartao.id).select().single()
+      : cliente.from('cartoes').insert(campos).select().single();
+    const { data, error } = await consulta;
+    if (error) falhar(error);
+    const salvo = numerosCartao(data);
+    const lista = this.cartoes();
+    cache.cartoes = cartao.id ? lista.map((c) => (c.id === cartao.id ? salvo : c)) : [...lista, salvo];
+    salvarCache();
+    return salvo;
+  },
+  async removerCartao(id) {
+    const { error } = await cliente.from('cartoes').delete().eq('id', id);
+    if (error) falhar(error);
+    cache.cartoes = this.cartoes().filter((c) => c.id !== id);
+    // o banco tira o cartão dos gastos (on delete set null); a cópia local acompanha
+    cache.registros = cache.registros.map((r) => (r.cartaoId === id ? { ...r, cartaoId: null } : r));
     salvarCache();
   },
 

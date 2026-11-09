@@ -83,10 +83,20 @@ export function barrasMeses(meses, destaque) {
     </svg>`;
 }
 
-/** Barra de progresso (limite ou meta). estado: ok | atencao | estourou | meta */
-export function progresso(fracao, estado = 'ok', rotulo = '') {
+/**
+ * Barra de progresso (limite ou meta). estado: ok | atencao | estourou | meta
+ * marca: mostra um tracinho nos 80% (onde o app começa a avisar).
+ */
+export function progresso(fracao, estado = 'ok', rotulo = '', { marca = false } = {}) {
   const p = Math.max(0, Math.min(fracao, 1)) * 100;
-  return `<div class="progresso ${estado}" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+  return `<div class="progresso ${estado}${marca ? ' com-marca' : ''}" role="progressbar" aria-valuemin="0" aria-valuemax="100"
     aria-valuenow="${Math.round(fracao * 100)}" ${rotulo ? `aria-label="${esc(rotulo)}"` : ''}>
-    <div class="progresso-cheio" style="width:${p}%"></div></div>`;
+    <div class="progresso-cheio" style="width:${p}%"></div>${marca ? '<i class="progresso-marca" aria-hidden="true"></i>' : ''}</div>`;
+}
+
+/** Estado de uma barra de limite: até 80% ok, de 80% a 100% atenção, acima de 100% estourou. */
+export function estadoLimite(fracao) {
+  if (fracao > 1) return 'estourou';
+  if (fracao >= 0.8) return 'atencao';
+  return 'ok';
 }

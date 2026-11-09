@@ -2,9 +2,10 @@
 import { resumoMes, historicoMeses, statusLimites, resumoSemana, dicas, porLocal, nomeMes, somarMesesMes, mesDe, iso } from '../analise.js';
 import { store } from '../store.js';
 import { $$, esc, reais, pct, dataCurta, ICONES } from '../util.js';
-import { rosca, barrasMeses, progresso } from '../graficos.js';
+import { rosca, barrasMeses, progresso, estadoLimite } from '../graficos.js';
 import { bolinha, linhaRegistro, ligarRegistros } from './registro.js';
 import { seletorMes, ligarSeletorMes } from './lancamentos.js';
+import { cardFaturas, ligarFaturas } from './cartoes.js';
 
 const ROTULO_ESTADO = {
   ok: { texto: 'dentro do limite', icone: ICONES.ok },
@@ -15,7 +16,7 @@ const ROTULO_ESTADO = {
 export function telaPainel(raiz, app) {
   const hoje = new Date();
   const registros = store.listar();
-  const r = resumoMes(registros, app.mes, hoje);
+  const r = resumoMes(registros, app.mes, hoje, { contas: store.contas() });
   const limites = new Map(statusLimites(registros, store.orcamentos(), app.mes, hoje).map((l) => [l.categoria, l]));
   const historico = historicoMeses(registros, app.mes, 6, hoje);
   const atual = mesDe(iso(hoje));
@@ -42,7 +43,7 @@ export function telaPainel(raiz, app) {
           <span class="cat-valor"><b>${reais(c.valor)}</b><small>${c.valor > 0 ? pct(fracao) : ''}</small></span>
         </div>
         ${l ? `
-          ${progresso(l.gasto / l.limite, l.estado, `${c.categoria}: ${pct(l.gasto / l.limite)} do limite`)}
+          ${progresso(l.gasto / l.limite, estadoLimite(l.gasto / l.limite), `${c.categoria}: ${pct(l.gasto / l.limite)} do limite`, { marca: true })}
           <div class="cat-limite ${l.estado}">${ROTULO_ESTADO[l.estado].icone}
             <span>${l.estado === 'estourou' ? `${reais(-l.restante, { centavos: false })} acima` : `sobram ${reais(l.restante, { centavos: false })}`}
             de ${reais(l.limite, { centavos: false })}${ehAtual && l.estado === 'atencao' && l.projecao > l.limite ? ` · previsão ${reais(l.projecao, { centavos: false })}` : ''}</span></div>` : ''}
@@ -66,6 +67,8 @@ export function telaPainel(raiz, app) {
       ${ehAtual ? `<div class="kpi"><span>Previsão do mês</span><b>${reais(r.projecao, { centavos: false })}</b>
         <div class="kpi-sub"><span class="dica-inline">no ritmo de ${reais(r.gasto / Math.max(r.dia, 1), { centavos: false })}/dia</span></div></div>` : ''}
     </section>
+
+    ${ehAtual ? cardFaturas(app) : ''}
 
     <section class="cartao">
       <div class="cartao-topo"><h2>Para onde foi o dinheiro</h2></div>
@@ -111,6 +114,7 @@ export function telaPainel(raiz, app) {
     </section>` : ''}`;
 
   ligarSeletorMes(raiz, app);
+  ligarFaturas(raiz, app);
   ligarRegistros(raiz, app);
   $$('.barra-mes', raiz).forEach((g) => {
     const ir = () => { app.mes = g.dataset.mes; app.render(); };

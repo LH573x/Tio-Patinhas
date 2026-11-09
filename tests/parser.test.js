@@ -71,3 +71,25 @@ for (const [frase, esperado] of casosLocalHora) {
     for (const [k, v] of Object.entries(esperado)) assert.equal(r[k], v, `${k} em "${frase}"`);
   });
 }
+
+test('cartão pelo nome: vira crédito e sai do item e do local', () => {
+  const cartoes = [{ id: 'nu', nome: 'Nubank' }, { id: 'it', nome: 'Itaú' }, { id: 'xp', nome: 'XP Visa' }];
+  const hoje = new Date(2026, 10, 9);
+  let r = interpretar('mercado 200 nubank', { hoje, cartoes });
+  assert.equal(r.cartaoId, 'nu');
+  assert.equal(r.metodo, 'Crédito');
+  assert.equal(r.item, 'Mercado');
+  r = interpretar('jantar 90 no itau', { hoje, cartoes });
+  assert.equal(r.cartaoId, 'it');
+  assert.equal(r.item, 'Jantar');
+  assert.equal(r.local, null);
+  r = interpretar('tênis 600 em 3x xp visa', { hoje, cartoes });
+  assert.equal(r.cartaoId, 'xp');
+  assert.equal(r.parcelas, 3);
+  assert.equal(r.item, 'Tênis');
+  r = interpretar('padaria 12 débito nubank', { hoje, cartoes });
+  assert.equal(r.cartaoId, null);
+  assert.equal(r.metodo, 'Débito');
+  r = interpretar('salgado 8,50 pix', { hoje, cartoes });
+  assert.equal(r.cartaoId, null);
+});

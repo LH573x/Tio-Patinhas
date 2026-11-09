@@ -84,7 +84,7 @@ export function porLocal(registros, mes, hoje) {
  * Resumo de um mês. Se for o mês atual, inclui a projeção até o fim do mês
  * e compara com o mês anterior até o mesmo dia (comparação justa).
  */
-export function resumoMes(registros, mes, hoje) {
+export function resumoMes(registros, mes, hoje, { contas = [] } = {}) {
   const hojeISO = iso(hoje);
   const mesAtual = mesDe(hojeISO);
   const emAndamento = mes === mesAtual;
@@ -104,12 +104,137 @@ export function resumoMes(registros, mes, hoje) {
     saldo: r2(e - g),
     dia,
     diasNoMes: total,
-    projecao: emAndamento && dia > 0 ? r2((g / dia) * total) : g,
+    projecao: emAndamento && dia > 0 ? previsaoGastos(registros, contas, hoje) : g,
     anteriorMesmoPeriodo: gAnteriorMesmoPeriodo,
     anteriorTotal: gAnteriorTotal,
     variacao: gAnteriorMesmoPeriodo > 0 ? (g - gAnteriorMesmoPeriodo) / gAnteriorMesmoPeriodo : null,
     categorias: porCategoria(gastos(regs)),
   };
+}
+
+/** Gasto que já tem valor certo: conta fixa paga ou parcela. Não entra no "ritmo" do dia a dia. */
+const ehFixo = (r) => Boolean(r.parcela) || ehPagamentoConta(r);
+
+/**
+ * Previsão de gastos do mês atual:
+ * ritmo dos gastos do dia a dia até hoje, projetado até o fim do mês
+ * + contas fixas e parcelas (pagas ou ainda por vir, pelo valor certo).
+ */
+export function previsaoGastos(registros, contas, hoje) {
+  const hojeISO = iso(hoje);
+  const mes = mesDe(hojeISO);
+  const dia = hoje.getDate();
+  const doMesTodo = gastos(doMes(registros, mes));
+  const ateHoje = doMesTodo.filter((r) => r.data <= hojeISO);
+  const variaveis = soma(ateHoje.filter((r) => !ehFixo(r)));
+  const fixosAteHoje = soma(ateHoje.filter(ehFixo));
+  const jaLancadosDepois = soma(doMesTodo.filter((r) => r.data > hojeISO));
+  const contasPendentes = statusContas(contas, registros, hoje)
+    .filter((s) => !s.pagamento).reduce((t, s) => t + s.conta.valor, 0);
+  return r2((variaveis / Math.max(dia, 1)) * diasNoMes(mes) + fixosAteHoje + jaLancadosDepois + contasPendentes);
+}
+
+// ---------------------------------------------------------------- Contas fixas
+
+/** Referência do pagamento de uma conta fixa num mês (fica em registros.ref_externa). */
+export const refConta = (id, mes) => `conta:${id}:${mes}`;
+export const ehPagamentoConta = (r) => Boolean(r.refExterna && r.refExterna.startsWith('conta:'));
+
+/** Data de um dia do mês, sem passar do último dia (dia 31 em fevereiro vira 28 ou 29). */
+export function diaNoMes(dia, mes) {
+  return `${mes}-${String(Math.min(dia, diasNoMes(mes))).padStart(2, '0')}`;
+}
+
+/** Dias de a até b (datas ISO). Positivo se b é depois de a. */
+export function diasEntre(a, b) {
+  return Math.round((deISO(b) - deISO(a)) / 864e5);
+}
+
+/**
+ * Situação das contas fixas ativas no mês de `hoje`, por ordem de vencimento.
+ * estado: paga | atrasada | hoje | breve (até 5 dias) | futura
+ */
+export function statusContas(contas, registros, hoje) {
+  const hojeISO = iso(hoje);
+  const mes = mesDe(hojeISO);
+  const pagas = new Map(registros.filter(ehPagamentoConta).map((r) => [r.refExterna, r]));
+  return contas
+    .filter((c) => c.ativa !== false)
+    .map((conta) => {
+      const vencimento = diaNoMes(conta.dia_vencimento, mes);
+      const pagamento = pagas.get(refConta(conta.id, mes)) || null;
+      const dias = diasEntre(hojeISO, vencimento);
+      let estado = 'futura';
+      if (pagamento) estado = 'paga';
+      else if (dias < 0) estado = 'atrasada';
+      else if (dias === 0) estado = 'hoje';
+      else if (dias <= 5) estado = 'breve';
+      return { conta, vencimento, dias, pagamento, estado };
+    })
+    .sort((a, b) => a.vencimento.localeCompare(b.vencimento));
+}
+
+/** Texto curto do vencimento: "Vence hoje", "Vence amanhã", "Em 3 dias", "Atrasada há 2 dias", "Dia 20". */
+export function rotuloVencimento(dias, { pago = false, diaDoMes = null } = {}) {
+  if (pago) return 'Paga';
+  if (dias < 0) return dias === -1 ? 'Venceu ontem' : `Atrasada há ${-dias} dias`;
+  if (dias === 0) return 'Vence hoje';
+  if (dias === 1) return 'Vence amanhã';
+  if (dias <= 5 || diaDoMes === null) return `Em ${dias} dias`;
+  return `Dia ${diaDoMes}`;
+}
+
+// ---------------------------------------------------------------- Cartões e faturas
+
+/**
+ * Em qual fatura cai uma compra feita em `data`.
+ * Compras a partir do dia do fechamento vão para a fatura seguinte.
+ * Retorna { fechamento, vencimento } (datas ISO).
+ */
+export function faturaDaCompra(data, cartao) {
+  const mesCompra = mesDe(data);
+  const dia = Number(data.slice(8));
+  const fechaEsteMes = diaNoMes(cartao.dia_fechamento, mesCompra);
+  const mesFechamento = dia >= Number(fechaEsteMes.slice(8)) ? somarMesesMes(mesCompra, 1) : mesCompra;
+  const fechamento = diaNoMes(cartao.dia_fechamento, mesFechamento);
+  const mesVencimento = cartao.dia_vencimento > cartao.dia_fechamento ? mesFechamento : somarMesesMes(mesFechamento, 1);
+  return { fechamento, vencimento: diaNoMes(cartao.dia_vencimento, mesVencimento) };
+}
+
+/**
+ * Faturas de cada cartão. Gastos no crédito com `cartaoId`; cada parcela já é um
+ * registro com a própria data, então cai sozinha na fatura certa.
+ * Fatura com vencimento já passado é considerada paga.
+ * Retorna [{ cartao, atual, proxima, usado, disponivel }], onde atual/proxima =
+ * { fechamento, vencimento, valor, itens, fechada }.
+ */
+export function faturasCartoes(registros, cartoes, hoje) {
+  const hojeISO = iso(hoje);
+  return cartoes.map((cartao) => {
+    const grupos = new Map();
+    for (const r of registros) {
+      if (r.tipo !== 'gasto' || r.cartaoId !== cartao.id) continue;
+      const f = faturaDaCompra(r.data, cartao);
+      if (f.vencimento < hojeISO) continue;
+      const g = grupos.get(f.vencimento) || { ...f, valor: 0, itens: [] };
+      g.valor = r2(g.valor + r.valor);
+      g.itens.push(r);
+      grupos.set(f.vencimento, g);
+    }
+    const abertas = [...grupos.values()].sort((a, b) => a.vencimento.localeCompare(b.vencimento));
+    const corrente = faturaDaCompra(hojeISO, cartao);
+    const atual = abertas[0] || { ...corrente, valor: 0, itens: [] };
+    const proxima = abertas.find((f) => f.vencimento > atual.vencimento) || null;
+    const usado = r2(abertas.reduce((t, f) => t + f.valor, 0));
+    const marcar = (f) => f && { ...f, fechada: f.fechamento <= hojeISO };
+    return {
+      cartao,
+      atual: marcar(atual),
+      proxima: marcar(proxima),
+      usado,
+      disponivel: cartao.limite ? r2(cartao.limite - usado) : null,
+    };
+  });
 }
 
 /** Gastos (e entradas) dos últimos n meses terminando em `mes`. */
@@ -265,4 +390,82 @@ export function planoMeta(meta, hoje) {
     porMes = r2(falta / mesesRestantes);
   }
   return { falta, pct, porMes, mesesRestantes, concluida: falta === 0 };
+}
+
+/**
+ * Categorias que cruzaram 80% ou 100% do limite com os gastos `novos`.
+ * Retorna [{ categoria, pct, marco: 0.8 | 1 }]
+ */
+export function cruzouLimite(antes, novos, orcamentos, hoje) {
+  const hojeISO = iso(hoje);
+  const mes = mesDe(hojeISO);
+  const doMesAteHoje = (lista, cat) => soma(gastos(lista).filter((r) => r.categoria === cat && mesDe(r.data) === mes && r.data <= hojeISO));
+  const lista = [];
+  for (const cat of new Set(gastos(novos).map((r) => r.categoria))) {
+    const o = orcamentos.find((x) => x.categoria === cat && x.limite > 0);
+    if (!o) continue;
+    const a = doMesAteHoje(antes, cat) / o.limite;
+    const d = (doMesAteHoje(antes, cat) + doMesAteHoje(novos, cat)) / o.limite;
+    const marco = [1, 0.8].find((m) => a < m && d >= m);
+    if (marco) lista.push({ categoria: cat, pct: d, marco });
+  }
+  return lista;
+}
+
+/**
+ * Avisos do card do dia, por prioridade (máx. `maximo`):
+ * contas e faturas vencendo, limites perto de estourar, quanto dá pra gastar por dia, caixa de entrada.
+ * Cada aviso: { tipo, texto, selo?, tom } (tom: estourou | atencao | ok | neutro)
+ */
+export function avisosDoDia({ registros, orcamentos = [], contas = [], cartoes = [], caixaPendentes = 0, hoje, maximo = 4 }) {
+  const lista = [];
+  const hojeISO = iso(hoje);
+  const mes = mesDe(hojeISO);
+  const fmt0 = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+  const fmt2 = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  // 1) Contas fixas atrasadas ou vencendo em até 3 dias
+  for (const s of statusContas(contas, registros, hoje)) {
+    if (s.pagamento || s.dias > 3) continue;
+    const peso = s.dias < 0 ? 100 : 90 - s.dias;
+    const texto = s.dias < 0 ? `${s.conta.nome} venceu ${s.dias === -1 ? 'ontem' : `há ${-s.dias} dias`}` : s.dias === 0 ? `${s.conta.nome} vence hoje` : `${s.conta.nome} vence ${s.dias === 1 ? 'amanhã' : `em ${s.dias} dias`}`;
+    lista.push({ tipo: 'conta', id: s.conta.id, peso, texto, valor: fmt2(s.conta.valor), tom: s.dias <= 0 ? 'estourou' : 'atencao' });
+  }
+
+  // 2) Faturas fechadas vencendo em até 5 dias
+  for (const f of faturasCartoes(registros, cartoes, hoje)) {
+    if (!f.atual.fechada || f.atual.valor <= 0) continue;
+    const dias = diasEntre(hojeISO, f.atual.vencimento);
+    if (dias > 5) continue;
+    lista.push({ tipo: 'fatura', peso: 85 - dias, tom: dias === 0 ? 'estourou' : 'atencao', valor: fmt2(f.atual.valor),
+      texto: `Fatura do ${f.cartao.nome} ${dias === 0 ? 'vence hoje' : dias === 1 ? 'vence amanhã' : `vence em ${dias} dias`}` });
+  }
+
+  // 3) Limites de categoria em 80% ou mais
+  for (const s of statusLimites(registros, orcamentos, mes, hoje)) {
+    if (s.pct < 0.8) continue;
+    const passou = s.gasto > s.limite;
+    lista.push({ tipo: 'limite', peso: passou ? 70 : 60, tom: passou ? 'estourou' : 'atencao',
+      texto: passou ? `${s.categoria} passou ${fmt0(s.gasto - s.limite)} do limite` : `${s.categoria} já usou ${Math.round(s.pct * 100)}% do limite`,
+      valor: `${fmt0(s.gasto)} de ${fmt0(s.limite)}` });
+  }
+
+  // 4) Quanto dá pra gastar por dia até o fim do mês (se houver limites)
+  const planejado = orcamentos.filter((o) => o.limite > 0).reduce((t, o) => t + o.limite, 0);
+  if (planejado > 0) {
+    const gasto = soma(gastos(doMes(registros, mes)).filter((r) => r.data <= hojeISO));
+    const restantes = diasNoMes(mes) - hoje.getDate() + 1;
+    const sobra = planejado - gasto;
+    lista.push(sobra > 0
+      ? { tipo: 'ritmo', peso: 40, tom: 'ok', texto: `Dá pra gastar ${fmt0(Math.floor(sobra / restantes))} por dia até o fim do mês` }
+      : { tipo: 'ritmo', peso: 65, tom: 'estourou', texto: `O mês já passou ${fmt0(-sobra)} do planejado` });
+  }
+
+  // 5) Caixa de entrada
+  if (caixaPendentes > 0) {
+    lista.push({ tipo: 'caixa', peso: 30, tom: 'neutro',
+      texto: caixaPendentes === 1 ? '1 envio esperando a leitura de madrugada' : `${caixaPendentes} envios esperando a leitura de madrugada` });
+  }
+
+  return lista.sort((a, b) => b.peso - a.peso).slice(0, maximo).map(({ peso, ...a }) => a);
 }

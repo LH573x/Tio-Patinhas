@@ -12,15 +12,18 @@ Escreva (ou dite pelo microfone do teclado) frases como:
 - `tênis 600 em 3x` (vira 3 parcelas mensais)
 - `recebi salário 3500`
 - `pizza 60 pix ontem`
+- `mercado 200 nubank` (gasto no crédito, na fatura do cartão Nubank)
 
 O app identifica item, valor, forma de pagamento e categoria. Se você corrigir uma categoria, ele aprende para a próxima vez.
 
 Telas:
 
-- **Início**: resumo do mês, registro rápido, foto do cupom, extrato, revisar ontem e hoje.
+- **Início**: resumo do mês, card “Seu dia” (contas e faturas vencendo, limites perto de estourar, quanto dá pra gastar por dia), registro rápido, foto do cupom, extrato, revisar ontem e hoje. Ao registrar um gasto que passa de 80% ou 100% do limite, o aviso de confirmação já diz.
 - **Lançamentos**: todos os registros do mês por dia, com busca, filtro por categoria e importação de extrato.
-- **Painel**: para onde foi o dinheiro, comparação com o mês anterior, gastos dos últimos 6 meses, dicas de economia, semana passada e parcelas futuras.
-- **Metas**: limite por categoria e metas de economia.
+- **Painel**: faturas de cada cartão (valor, vencimento e limite usado), para onde foi o dinheiro, comparação com o mês anterior, gastos dos últimos 6 meses, dicas de economia, semana passada e parcelas futuras.
+- **Metas**: contas fixas (com botão “Paguei”), cartões de crédito, limite por categoria e metas de economia.
+
+A previsão do mês soma o ritmo dos gastos do dia a dia com as contas fixas e parcelas pelo valor certo.
 
 Aparência: Claro, Escuro ou Automático (toque no seu avatar, no canto de cima).
 
