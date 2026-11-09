@@ -469,3 +469,12 @@ main { max-width: 640px; margin: 0 auto; padding: 4px 16px calc(96px + env(safe-
 }
 .lista-locais li span:nth-child(2) { display: flex; flex-direction: column; min-width: 0; }
 .lista-locais small { font-size: 12px; }
+
+/* ---------------------------------------------------------------- Instalar */
+.cartao.instalar { display: grid; grid-template-columns: 44px 1fr; gap: 6px 12px; align-items: center; }
+.cartao.instalar img { border-radius: 12px; }
+.cartao.instalar .dica { margin: 0; }
+.instalar-acoes { grid-column: 1 / -1; display: flex; align-items: center; gap: 16px; margin-top: 6px; }
+.instalar-acoes .btn { min-height: 40px; }
+.passos { margin: 4px 0 8px; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.sec-titulo + .dica svg, .folha-corpo .dica svg { width: 16px; height: 16px; vertical-align: -3px; color: var(--ok); }
