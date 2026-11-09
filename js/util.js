@@ -24,6 +24,11 @@ export function hojeISO(delta = 0) {
   return somarDias(iso(new Date()), delta);
 }
 
+export function horaAgora() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 export function dataCurta(s) {
   const [, m, d] = s.split('-');
   return `${d}/${m}`;
@@ -48,6 +53,13 @@ export function lerNumero(txt) {
 
 export function numeroParaCampo(v) {
   return v === null || v === undefined ? '' : String(v).replace('.', ',');
+}
+
+/** Faixa que pede para rodar o schema.sql de novo quando o banco está desatualizado. */
+export function avisoBanco(ativo) {
+  if (!ativo) return '';
+  return `<div class="aviso-banco">${ICONES.alerta}<span>Falta atualizar o banco pra usar todas as novidades (limites, metas, fotos, local e horário):
+    rode de novo o arquivo <b>schema.sql</b> no SQL Editor do Supabase, com “Primary Database” selecionado.</span></div>`;
 }
 
 // ---------- Aviso rápido (toast) ----------

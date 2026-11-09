@@ -2,7 +2,7 @@
 import { interpretar, gerarLancamentos, CATEGORIAS_GASTO, CATEGORIAS_ENTRADA, METODOS } from '../parser.js';
 import { resumoMes, resumoSemana, statusLimites, nomeMes, mesDe, iso, somarMesesMes } from '../analise.js';
 import { store } from '../store.js';
-import { $, esc, reais, pct, hojeISO, dataCurta, aviso, ICONES } from '../util.js';
+import { $, esc, reais, pct, hojeISO, horaAgora, dataCurta, aviso, avisoBanco, ICONES } from '../util.js';
 import { progresso } from '../graficos.js';
 import { linhaRegistro, ligarRegistros, bolinha } from './registro.js';
 import { enviarCupom, enviarExtrato, cardCaixa, ligarCaixa } from './anexos.js';
@@ -65,7 +65,7 @@ function cardRegistrar() {
 
 function cardOntem(app) {
   const ontem = hojeISO(-1);
-  const regs = store.listar().filter((r) => r.data === ontem).sort((a, b) => (b.criadoEm || '').localeCompare(a.criadoEm || ''));
+  const regs = store.listar().filter((r) => r.data === ontem).sort((a, b) => (b.hora || '').localeCompare(a.hora || '') || (b.criadoEm || '').localeCompare(a.criadoEm || ''));
   if (!regs.length) return '';
   const total = regs.filter((r) => r.tipo === 'gasto').reduce((s, r) => s + r.valor, 0);
   return `
@@ -96,7 +96,7 @@ function cardSemana(app) {
 
 function cardHoje(app) {
   const hoje = hojeISO();
-  const regs = store.listar().filter((r) => r.data === hoje).sort((a, b) => (b.criadoEm || '').localeCompare(a.criadoEm || ''));
+  const regs = store.listar().filter((r) => r.data === hoje).sort((a, b) => (b.hora || '').localeCompare(a.hora || '') || (b.criadoEm || '').localeCompare(a.criadoEm || ''));
   const total = regs.filter((r) => r.tipo === 'gasto').reduce((s, r) => s + r.valor, 0);
   return `
     <section class="cartao">
@@ -116,11 +116,24 @@ function renderPrevia() {
     box.hidden = true;
     return;
   }
-  const manual = previa && previa.categoriaManual ? previa : null;
+  const anterior = previa;
   previa = interpretar(texto, { regras: store.regras() });
-  if (manual) {
-    previa.categoria = manual.categoria;
+  if (anterior && anterior.categoriaManual) {
+    previa.categoria = anterior.categoria;
     previa.categoriaManual = true;
+  }
+  if (anterior && anterior.localManual) {
+    previa.local = anterior.local;
+    previa.localManual = true;
+  }
+  if (anterior && anterior.horaManual) {
+    previa.hora = anterior.hora;
+    previa.horaManual = true;
+  }
+  // Sem horário na frase: se é de hoje, usa a hora de agora.
+  if (!previa.hora && !previa.horaManual && previa.data === hojeISO()) {
+    previa.hora = horaAgora();
+    previa.horaAutomatica = true;
   }
   const cats = previa.tipo === 'entrada' ? CATEGORIAS_ENTRADA : CATEGORIAS_GASTO;
   box.hidden = false;
@@ -134,9 +147,22 @@ function renderPrevia() {
       <label class="campo">Categoria<select id="p-cat">${opcoes(cats, previa.categoria)}</select></label>
       <label class="campo">Pagamento<select id="p-metodo"><option value="">—</option>${opcoes(METODOS, previa.metodo)}</select></label>
     </div>
+    <div class="dupla">
+      <label class="campo">Local <input id="p-local" placeholder="opcional" value="${esc(previa.local || '')}" autocomplete="off"></label>
+      <label class="campo">Horário <input id="p-hora" type="time" value="${previa.hora || ''}"></label>
+    </div>
     ${previa.parcelas > 1 ? `<p class="dica">${previa.parcelas}x de ${reais(previa.valorParcela)}, uma por mês</p>` : ''}
     ${previa.data !== hojeISO() ? `<p class="dica">Data: ${dataCurta(previa.data)}</p>` : ''}`;
   $('#p-metodo').addEventListener('change', (e) => { previa.metodo = e.target.value || null; });
+  $('#p-local').addEventListener('input', (e) => {
+    previa.local = e.target.value.trim() || null;
+    previa.localManual = true;
+  });
+  $('#p-hora').addEventListener('input', (e) => {
+    previa.hora = e.target.value || null;
+    previa.horaManual = true;
+    previa.horaAutomatica = false;
+  });
   $('#p-cat').addEventListener('change', (e) => {
     previa.categoria = e.target.value;
     previa.categoriaManual = true;
@@ -149,7 +175,8 @@ async function registrar(app) {
     aviso('Coloque o valor, ex.: “salgado 8,50 pix”', 'erro');
     return;
   }
-  const { categoriaManual, completo, ...reg } = previa;
+  const { categoriaManual, localManual, horaManual, horaAutomatica, completo, ...reg } = previa;
+  if (horaAutomatica) reg.hora = horaAgora(); // hora de quando registrou de fato
   salvando = true;
   try {
     if (categoriaManual) await store.aprenderRegra(reg.item, reg.categoria);
@@ -167,7 +194,7 @@ async function registrar(app) {
 }
 
 export function telaInicio(raiz, app) {
-  raiz.innerHTML = [cardMes(app), cardRegistrar(), cardCaixa(app), cardSemana(app), cardOntem(app), cardHoje(app)].join('');
+  raiz.innerHTML = [avisoBanco(store.bancoDesatualizado), cardMes(app), cardRegistrar(), cardCaixa(app), cardSemana(app), cardOntem(app), cardHoje(app)].join('');
   $('#frase', raiz).addEventListener('input', renderPrevia);
   $('#form-registro', raiz).addEventListener('submit', (e) => {
     e.preventDefault();

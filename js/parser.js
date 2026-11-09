@@ -98,7 +98,7 @@ export function sugerirCategoria(texto, tipo = 'gasto', regras = []) {
 
 /**
  * Interpreta uma frase livre.
- * Retorna { tipo, item, valor, metodo, categoria, data, parcelas, valorParcela, textoOriginal, completo }
+ * Retorna { tipo, item, valor, metodo, categoria, data, parcelas, valorParcela, local, hora, textoOriginal, completo }
  */
 export function interpretar(frase, { hoje = new Date(), regras = [] } = {}) {
   const textoOriginal = frase.trim();
@@ -148,10 +148,56 @@ export function interpretar(frase, { hoje = new Date(), regras = [] } = {}) {
   let escolhido = candidatos.filter((c) => c.forte).pop() || candidatos[candidatos.length - 1] || null;
   const valor = escolhido ? Math.round(escolhido.n * 100) / 100 : null;
 
-  // Item: o que sobra
   const termosMetodo = new Set(PALAVRAS_METODO.flatMap(([, ts]) => ts.filter((t) => !t.includes(' '))));
+  const normTok = (tok) => semAcento(tok || '').replace(/[.,;:!?]+$/, '');
+
+  // Horário: "15h", "15h30", "15:30", "às 9h", "meio-dia"
+  let hora = null;
+  const usados = new Set();
+  tokens.forEach((tok, i) => {
+    if (hora) return;
+    const n = semAcento(tok).replace(/[.,;!?]+$/, '');
+    let h = null;
+    let m = 0;
+    const mh = n.match(/^([01]?\d|2[0-3])(?:h([0-5]\d)?|:([0-5]\d)h?)$/);
+    if (mh) {
+      h = Number(mh[1]);
+      m = Number(mh[2] || mh[3] || 0);
+    } else if (n === 'meio-dia' || (n === 'meio' && normTok(tokens[i + 1]) === 'dia')) {
+      h = 12;
+      if (n === 'meio') usados.add(i + 1);
+    }
+    if (h === null) return;
+    hora = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    usados.add(i);
+    if (['as', 'a', 'ao'].includes(normTok(tokens[i - 1]))) usados.add(i - 1);
+  });
+
+  // Local: "... no posto shell", "... na padaria do zé", "... em Floripa"
+  const GATILHOS = new Set(['no', 'na', 'nos', 'nas', 'em']);
+  const PARADAS = new Set(['com', 'pelo', 'pela', 'por', 'via', 'pra', 'para', 'ontem', 'anteontem', 'hoje', 'as', 'pago', 'paguei', 'e']);
+  const ehNumero = (tok) => /^(r\$)?\d[\d.,]*x?$/i.test(tok.replace(/[;:!?]+$/, ''));
+  const ehParada = (i) => usados.has(i) || (escolhido && i === escolhido.i) || PARADAS.has(normTok(tokens[i]))
+    || termosMetodo.has(normTok(tokens[i])) || ehNumero(tokens[i]) || normTok(tokens[i]) === 'r$' || normTok(tokens[i]) === 'vezes';
+  let local = null;
+  for (let t = 1; t < tokens.length - 1 && !local; t++) {
+    if (!GATILHOS.has(normTok(tokens[t])) || ehParada(t + 1)) continue;
+    const antes = tokens.slice(0, t).some((tok, i) => !(escolhido && i === escolhido.i) && !PALAVRAS_DESCARTE.has(normTok(tok)) && !ehNumero(tok) && !termosMetodo.has(normTok(tok)));
+    if (!antes) continue;
+    let fim = t + 1;
+    while (fim < tokens.length && !ehParada(fim) && !GATILHOS.has(normTok(tokens[fim]))) fim++;
+    while (fim > t + 1 && PALAVRAS_DESCARTE.has(normTok(tokens[fim - 1]))) fim--;
+    const partes = tokens.slice(t + 1, fim).map((x) => x.replace(/[.,;:!?]+$/, ''));
+    if (!partes.length) continue;
+    local = partes.join(' ');
+    local = local.charAt(0).toUpperCase() + local.slice(1);
+    for (let i = t; i < fim; i++) usados.add(i);
+  }
+
+  // Item: o que sobra
   const palavrasItem = tokens.filter((tok, i) => {
     if (escolhido && i === escolhido.i) return false;
+    if (usados.has(i)) return false;
     const n = semAcento(tok).replace(/[.,;:!?]+$/, '');
     if (!n) return false;
     if (PALAVRAS_DESCARTE.has(n)) return false;
@@ -167,7 +213,10 @@ export function interpretar(frase, { hoje = new Date(), regras = [] } = {}) {
   if (!item) item = tipo === 'entrada' ? 'Entrada' : 'Gasto';
   item = item.charAt(0).toUpperCase() + item.slice(1);
 
-  const categoria = sugerirCategoria(textoOriginal, tipo, regras);
+  // A categoria vem primeiro do item ("coxinha no posto" é Refeições, não Carro);
+  // se o item não disser nada, olha a frase inteira.
+  let categoria = sugerirCategoria(item, tipo, regras);
+  if (categoria === 'Outros' || categoria === 'Outras entradas') categoria = sugerirCategoria(textoOriginal, tipo, regras);
   const valorParcela = valor !== null && parcelas > 1 ? Math.round((valor / parcelas) * 100) / 100 : valor;
 
   return {
@@ -179,6 +228,8 @@ export function interpretar(frase, { hoje = new Date(), regras = [] } = {}) {
     data,
     parcelas,
     valorParcela,
+    local,
+    hora,
     textoOriginal,
     completo: valor !== null,
   };

@@ -10,7 +10,7 @@ export function bolinha(categoria, app) {
 }
 
 export function linhaRegistro(r, app, { mostrarData = false } = {}) {
-  const detalhe = [r.categoria, r.metodo, mostrarData ? r.data.split('-').reverse().slice(0, 2).join('/') : null]
+  const detalhe = [r.categoria, r.metodo, mostrarData ? r.data.split('-').reverse().slice(0, 2).join('/') : null, r.hora, r.local]
     .filter(Boolean).join(' · ');
   const origem = r.origem && r.origem !== 'texto' ? `<span class="selo">${r.origem === 'extrato' ? 'extrato' : 'cupom'}</span>` : '';
   return `
@@ -50,6 +50,10 @@ export function editarRegistro(r, app) {
         <label class="campo">Categoria<select name="categoria">${opcoes(cats, r.categoria)}</select></label>
         <label class="campo">Pagamento<select name="metodo"><option value="">—</option>${opcoes(METODOS, r.metodo)}</select></label>
       </div>
+      <div class="dupla">
+        <label class="campo">Local<input name="local" value="${esc(r.local || '')}" placeholder="opcional"></label>
+        <label class="campo">Horário<input name="hora" type="time" value="${r.hora || ''}"></label>
+      </div>
       ${r.textoOriginal ? `<p class="dica">Você escreveu: “${esc(r.textoOriginal)}”</p>` : ''}
       <div class="acoes-folha">
         <button type="button" class="btn perigo-texto" id="apagar">${ICONES.lixo}Apagar</button>
@@ -64,7 +68,8 @@ export function editarRegistro(r, app) {
         aviso('Valor inválido', 'erro');
         return;
       }
-      const m = { ...r, item: f.get('item').trim(), valor, data: f.get('data'), categoria: f.get('categoria'), metodo: f.get('metodo') || null };
+      const m = { ...r, item: f.get('item').trim(), valor, data: f.get('data'), categoria: f.get('categoria'), metodo: f.get('metodo') || null,
+        local: f.get('local').trim() || null, hora: f.get('hora') || null };
       try {
         if (m.categoria !== r.categoria) await store.aprenderRegra(m.item, m.categoria);
         await store.atualizar(r.id, m);

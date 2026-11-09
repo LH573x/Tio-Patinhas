@@ -50,3 +50,24 @@ test('parcelas com centavos fecham o total', () => {
   const l = gerarLancamentos(interpretar('celular 1000 10x', { hoje }));
   assert.equal(Math.round(l.reduce((s, x) => s + x.valor, 0) * 100) / 100, 1000);
 });
+
+const casosLocalHora = [
+  ['salgado 8,50 pix na padaria do zé', { item: 'Salgado', local: 'Padaria do zé', hora: null, valor: 8.5, metodo: 'Pix', categoria: 'Refeições' }],
+  ['gasolina 200 no crédito no posto shell às 15h30', { item: 'Gasolina', local: 'Posto shell', hora: '15:30', metodo: 'Crédito', valor: 200 }],
+  ['coxinha 9 no posto ipiranga', { item: 'Coxinha', local: 'Posto ipiranga', categoria: 'Refeições' }],
+  ['almoço 35 no shopping com a namorada', { local: 'Shopping', categoria: 'Namorada', valor: 35 }],
+  ['hotel em Floripa 1.200,50 pix', { item: 'Hotel', local: 'Floripa', valor: 1200.5, categoria: 'Viagens' }],
+  ['tênis 600 em 3x na Centauro', { item: 'Tênis', local: 'Centauro', valor: 600, parcelas: 3 }],
+  ['café 7 às 9h', { item: 'Café', hora: '09:00', valor: 7, local: null }],
+  ['pizza 60 pix ontem 21:15', { hora: '21:15', valor: 60, data: '2026-11-08', item: 'Pizza' }],
+  ['abasteci 200 no crédito', { local: null, metodo: 'Crédito', valor: 200 }],
+  ['almoço 25 em dinheiro', { local: null, metodo: 'Dinheiro', valor: 25 }],
+  ['marmita 22 meio dia no trabalho', { hora: '12:00', local: 'Trabalho', item: 'Marmita', valor: 22 }],
+];
+
+for (const [frase, esperado] of casosLocalHora) {
+  test(`local e hora: ${frase}`, () => {
+    const r = interpretar(frase, { hoje });
+    for (const [k, v] of Object.entries(esperado)) assert.equal(r[k], v, `${k} em "${frase}"`);
+  });
+}

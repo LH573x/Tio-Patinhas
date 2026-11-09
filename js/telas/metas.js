@@ -2,7 +2,7 @@
 import { CATEGORIAS_GASTO } from '../parser.js';
 import { statusLimites, resumoMes, historicoMeses, planoMeta, mesDe, iso, nomeMes, somarMesesMes, doMes } from '../analise.js';
 import { store } from '../store.js';
-import { $, $$, esc, reais, pct, abrirFolha, confirmar, aviso, lerNumero, numeroParaCampo, ICONES } from '../util.js';
+import { $, $$, esc, reais, pct, abrirFolha, confirmar, aviso, lerNumero, numeroParaCampo, ICONES, avisoBanco } from '../util.js';
 import { progresso } from '../graficos.js';
 import { bolinha } from './registro.js';
 
@@ -132,7 +132,7 @@ export function telaMetas(raiz, app) {
   const mediaSobra = sobraMedia.length ? sobraMedia.reduce((a, b) => a + b, 0) / sobraMedia.length : null;
 
   raiz.innerHTML = `
-    ${store.bancoDesatualizado ? `<div class="aviso-banco">${ICONES.alerta}<span>Pra usar limites, metas e envio de fotos, atualize o banco: rode de novo o arquivo <b>schema.sql</b> no SQL Editor do Supabase.</span></div>` : ''}
+    ${avisoBanco(store.bancoDesatualizado)}
     <section class="cartao">
       <div class="cartao-topo"><h2>Limites de ${nomeMes(mes, { ano: false })}</h2>
         ${totalLimites ? `<span class="dica">${reais(r.gasto, { centavos: false })} de ${reais(totalLimites, { centavos: false })}</span>` : ''}</div>

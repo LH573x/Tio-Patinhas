@@ -1,5 +1,5 @@
 // Painel: para onde foi o dinheiro, comparação entre meses, limites e dicas.
-import { resumoMes, historicoMeses, statusLimites, resumoSemana, dicas, nomeMes, somarMesesMes, mesDe, iso } from '../analise.js';
+import { resumoMes, historicoMeses, statusLimites, resumoSemana, dicas, porLocal, nomeMes, somarMesesMes, mesDe, iso } from '../analise.js';
 import { store } from '../store.js';
 import { $$, esc, reais, pct, dataCurta, ICONES } from '../util.js';
 import { rosca, barrasMeses, progresso } from '../graficos.js';
@@ -51,6 +51,7 @@ export function telaPainel(raiz, app) {
 
   const listaDicas = ehAtual ? dicas(registros, store.orcamentos(), hoje) : [];
   const semana = ehAtual ? resumoSemana(registros, hoje) : null;
+  const locais = porLocal(registros, app.mes, hoje);
   const futuras = registros.filter((x) => x.parcela && x.data > iso(hoje)).sort((a, b) => a.data.localeCompare(b.data));
   const totalFuturas = futuras.reduce((s, x) => s + x.valor, 0);
 
@@ -73,6 +74,13 @@ export function telaPainel(raiz, app) {
         <ul class="lista-categorias">${listaCategorias}</ul>`
         : '<p class="vazio">Sem gastos neste mês.</p>'}
     </section>
+
+    ${locais.length ? `
+    <section class="cartao">
+      <div class="cartao-topo"><h2>Onde você mais gastou</h2></div>
+      <ul class="lista-cats lista-locais">${locais.slice(0, 5).map((l) => `
+        <li>${bolinha(l.categoria, app)}<span>${esc(l.local)}<small>${l.vezes} ${l.vezes === 1 ? 'vez' : 'vezes'}</small></span><b>${reais(l.valor)}</b></li>`).join('')}</ul>
+    </section>` : ''}
 
     <section class="cartao">
       <div class="cartao-topo"><h2>Gastos por mês</h2><span class="dica">toque num mês</span></div>
