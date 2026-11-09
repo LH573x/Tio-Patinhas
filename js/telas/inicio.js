@@ -2,8 +2,8 @@
 import { interpretar, gerarLancamentos, CATEGORIAS_GASTO, CATEGORIAS_ENTRADA, METODOS } from '../parser.js';
 import { resumoMes, resumoSemana, statusLimites, nomeMes, mesDe, iso, somarMesesMes } from '../analise.js';
 import { store } from '../store.js';
-import { $, esc, reais, pct, hojeISO, horaAgora, dataCurta, aviso, avisoBanco, ICONES } from '../util.js';
-import { progresso } from '../graficos.js';
+import { $, esc, reais, reaisGrande, pct, hojeISO, horaAgora, dataCurta, aviso, avisoBanco, ICONES } from '../util.js';
+import { progresso, estadoLimite } from '../graficos.js';
 import { linhaRegistro, ligarRegistros, bolinha } from './registro.js';
 import { enviarCupom, enviarExtrato, cardCaixa, ligarCaixa } from './anexos.js';
 
@@ -30,9 +30,9 @@ function cardMes(app) {
   return `
     <section class="cartao destaque-mes">
       <div class="rotulo-mes">Gastos em ${nomeMes(mes, { ano: false })}</div>
-      <div class="valor-grande">${reais(r.gasto)}</div>
+      <div class="valor-grande">${reaisGrande(r.gasto)}</div>
       ${planejado > 0 ? `
-        ${progresso(r.gasto / planejado, r.gasto > planejado ? 'estourou' : r.gasto / planejado > 0.8 ? 'atencao' : 'ok', 'Gasto em relação ao planejado')}
+        ${progresso(r.gasto / planejado, estadoLimite(r.gasto / planejado), 'Gasto em relação ao planejado', { marca: true })}
         <div class="linha-pequena">de ${reais(planejado, { centavos: false })} planejados · sobram <b>${reais(Math.max(planejado - r.gasto, 0), { centavos: false })}</b></div>`
         : `<div class="linha-pequena"><button type="button" class="link" data-ir="metas">Definir limites por categoria</button></div>`}
       <div class="mini-kpis">
@@ -101,7 +101,7 @@ function cardHoje(app) {
   return `
     <section class="cartao">
       <div class="cartao-topo"><h2>Hoje</h2><b>${reais(total)}</b></div>
-      <div class="lista-registros">${regs.length ? regs.map((r) => linhaRegistro(r, app)).join('') : '<p class="vazio">Nada registrado hoje ainda.</p>'}</div>
+      <div class="lista-registros">${regs.length ? regs.map((r) => linhaRegistro(r, app)).join('') : '<p class="vazio">Nada por aqui ainda. Quando gastar, é só escrever acima.</p>'}</div>
     </section>`;
 }
 

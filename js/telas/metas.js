@@ -3,7 +3,7 @@ import { CATEGORIAS_GASTO } from '../parser.js';
 import { statusLimites, resumoMes, historicoMeses, planoMeta, mesDe, iso, nomeMes, somarMesesMes, doMes } from '../analise.js';
 import { store } from '../store.js';
 import { $, $$, esc, reais, pct, abrirFolha, confirmar, aviso, lerNumero, numeroParaCampo, ICONES, avisoBanco } from '../util.js';
-import { progresso } from '../graficos.js';
+import { progresso, estadoLimite } from '../graficos.js';
 import { bolinha } from './registro.js';
 
 function mediaCategoria(categoria) {
@@ -145,7 +145,7 @@ export function telaMetas(raiz, app) {
             <div class="cat-topo">${bolinha(c, app)}<span class="cat-nome">${esc(c)}</span>
               <span class="cat-valor">${s ? `<b>${reais(gasto, { centavos: false })}</b><small>de ${reais(s.limite, { centavos: false })}</small>`
                 : `<span class="definir">${ICONES.mais}Definir</span>`}</span></div>
-            ${s ? progresso(gasto / s.limite, s.estado, `${c}: ${pct(gasto / s.limite)} do limite`) : ''}
+            ${s ? progresso(gasto / s.limite, estadoLimite(gasto / s.limite), `${c}: ${pct(gasto / s.limite)} do limite`, { marca: true }) : ''}
           </button></li>`;
       }).join('')}</ul>
     </section>

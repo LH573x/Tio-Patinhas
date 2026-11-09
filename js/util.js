@@ -16,6 +16,22 @@ export function reais(v, { centavos = true, sinal = false } = {}) {
   return sinal && v > 0 ? `+${s}` : s;
 }
 
+/** Valor em reais com os centavos menores (para números grandes). Retorna HTML. */
+export function reaisGrande(v) {
+  const txt = reais(v);
+  const i = txt.lastIndexOf(',');
+  if (i < 0) return esc(txt);
+  return `${esc(txt.slice(0, i))}<span class="centavos">${esc(txt.slice(i))}</span>`;
+}
+
+/**
+ * Selo de estado (chip pequeno). tipo: neutro | ok | atencao | estourou | destaque
+ * Ex.: selo('Vence hoje', 'atencao')
+ */
+export function selo(texto, tipo = 'neutro') {
+  return `<span class="selo ${tipo}">${esc(texto)}</span>`;
+}
+
 export function pct(v, casas = 0) {
   return `${(v * 100).toLocaleString('pt-BR', { maximumFractionDigits: casas })}%`;
 }

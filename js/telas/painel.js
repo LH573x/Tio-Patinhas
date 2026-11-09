@@ -2,7 +2,7 @@
 import { resumoMes, historicoMeses, statusLimites, resumoSemana, dicas, porLocal, nomeMes, somarMesesMes, mesDe, iso } from '../analise.js';
 import { store } from '../store.js';
 import { $$, esc, reais, pct, dataCurta, ICONES } from '../util.js';
-import { rosca, barrasMeses, progresso } from '../graficos.js';
+import { rosca, barrasMeses, progresso, estadoLimite } from '../graficos.js';
 import { bolinha, linhaRegistro, ligarRegistros } from './registro.js';
 import { seletorMes, ligarSeletorMes } from './lancamentos.js';
 
@@ -42,7 +42,7 @@ export function telaPainel(raiz, app) {
           <span class="cat-valor"><b>${reais(c.valor)}</b><small>${c.valor > 0 ? pct(fracao) : ''}</small></span>
         </div>
         ${l ? `
-          ${progresso(l.gasto / l.limite, l.estado, `${c.categoria}: ${pct(l.gasto / l.limite)} do limite`)}
+          ${progresso(l.gasto / l.limite, estadoLimite(l.gasto / l.limite), `${c.categoria}: ${pct(l.gasto / l.limite)} do limite`, { marca: true })}
           <div class="cat-limite ${l.estado}">${ROTULO_ESTADO[l.estado].icone}
             <span>${l.estado === 'estourou' ? `${reais(-l.restante, { centavos: false })} acima` : `sobram ${reais(l.restante, { centavos: false })}`}
             de ${reais(l.limite, { centavos: false })}${ehAtual && l.estado === 'atencao' && l.projecao > l.limite ? ` · previsão ${reais(l.projecao, { centavos: false })}` : ''}</span></div>` : ''}

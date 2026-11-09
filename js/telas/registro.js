@@ -1,7 +1,7 @@
 // Linha de um registro e a folha de edição, usadas em várias telas.
 import { CATEGORIAS_GASTO, CATEGORIAS_ENTRADA, METODOS } from '../parser.js';
 import { store } from '../store.js';
-import { $, $$, esc, reais, abrirFolha, confirmar, aviso, lerNumero, numeroParaCampo, ICONES } from '../util.js';
+import { $, $$, esc, reais, selo, abrirFolha, confirmar, aviso, lerNumero, numeroParaCampo, ICONES } from '../util.js';
 import { infoCategoria } from '../categorias.js';
 
 export function bolinha(categoria, app) {
@@ -12,12 +12,13 @@ export function bolinha(categoria, app) {
 export function linhaRegistro(r, app, { mostrarData = false } = {}) {
   const detalhe = [r.categoria, r.metodo, mostrarData ? r.data.split('-').reverse().slice(0, 2).join('/') : null, r.hora, r.local]
     .filter(Boolean).join(' · ');
-  const origem = r.origem && r.origem !== 'texto' ? `<span class="selo">${r.origem === 'extrato' ? 'extrato' : 'cupom'}</span>` : '';
+  const ORIGENS = { extrato: 'extrato', cupom: 'cupom', conta: 'conta fixa' };
+  const origem = r.origem && ORIGENS[r.origem] ? selo(ORIGENS[r.origem]) : '';
   return `
     <button type="button" class="registro" data-id="${r.id}">
       ${bolinha(r.categoria, app)}
       <span class="registro-meio">
-        <span class="registro-item">${esc(r.item)}${r.parcela ? ` <small>${esc(r.parcela)}</small>` : ''}${origem}</span>
+        <span class="registro-item">${esc(r.item)}${r.parcela ? selo(`parcela ${r.parcela}`) : ''}${origem}</span>
         <span class="registro-detalhe">${esc(detalhe)}</span>
       </span>
       <span class="registro-valor ${r.tipo}">${r.tipo === 'entrada' ? '+' : ''}${reais(r.valor)}</span>
