@@ -1,7 +1,7 @@
 // Service worker: deixa o app abrir rápido e funcionar offline.
-const VERSAO = 'tp-v1';
+const VERSAO = 'tp-v2';
 const ARQUIVOS = [
-  './', './index.html', './css/style.css', './js/app.js', './js/parser.js', './js/store.js',
+  './', './index.html', './css/style.css', './js/app.js', './js/parser.js', './js/store.js', './js/config.js', './js/vendor/supabase-2.118.0.js',
   './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png',
 ];
 

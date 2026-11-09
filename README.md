@@ -27,7 +27,7 @@ Refeições, Alimentação geral, Carro, Namorada, Viagens, Outros. Entradas: Sa
 
 ## Estado atual
 
-Etapa 2 do plano. Os dados ficam salvos **só neste aparelho** por enquanto. A próxima etapa liga o app ao Supabase (login e sincronização) e depois adiciona fotos de cupom e extratos.
+Os dados ficam no Supabase, com login. Cada pessoa só vê os próprios registros (veja `supabase/schema.sql`). Próxima etapa: fotos de cupom e extratos.
 
 ## Desenvolvimento
 

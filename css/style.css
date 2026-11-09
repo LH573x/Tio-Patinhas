@@ -41,6 +41,8 @@ body {
   padding: calc(16px + env(safe-area-inset-top)) 16px 18px;
   border-bottom: 4px solid var(--ouro);
 }
+.topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.sair { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.4); border-radius: 8px; padding: 6px 12px; font-size: .85rem; }
 .topo h1 { margin: 0; font-size: 1.35rem; letter-spacing: .01em; }
 .topo .sub { margin: 2px 0 0; opacity: .85; font-size: .95rem; }
 main { max-width: 640px; margin: 0 auto; padding: 16px; }
@@ -169,3 +171,10 @@ button { font: inherit; cursor: pointer; }
 @media (max-width: 380px) {
   .resumo { grid-template-columns: 1fr; }
 }
+.login { max-width: 420px; margin: 0 auto; padding: 24px 16px; }
+.login form { display: grid; gap: 12px; }
+.login label { display: grid; gap: 4px; font-size: .85rem; color: var(--suave); }
+.largo { width: 100%; padding: 14px; }
+.secundario { background: transparent; color: var(--texto); border: 1px solid var(--borda); border-radius: 10px; font-weight: 600; }
+.aviso { margin: 0; min-height: 1.2em; font-size: .9rem; color: var(--marca); }
+[hidden] { display: none !important; }

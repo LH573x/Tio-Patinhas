@@ -17,9 +17,22 @@
       <h1>Tio Patinhas</h1>
       <p class="sub">Gastos do mês: <strong id="total-mes">R$ 0,00</strong></p>
     </div>
+    <button id="sair" class="sair" type="button" hidden>Sair</button>
   </header>
 
-  <main>
+  <section id="tela-login" class="login" hidden>
+    <form id="form-login" class="cartao">
+      <h2>Entrar</h2>
+      <p class="dica">Seus registros ficam guardados na nuvem, protegidos pela sua conta.</p>
+      <label>Email<input id="login-email" type="email" autocomplete="email" required></label>
+      <label>Senha<input id="login-senha" type="password" autocomplete="current-password" minlength="6" required></label>
+      <button type="submit" class="primario largo">Entrar</button>
+      <button type="button" id="criar-conta" class="secundario largo">Criar conta</button>
+      <p id="login-aviso" class="aviso" role="status"></p>
+    </form>
+  </section>
+
+  <main id="app" hidden>
     <section id="aba-registrar" class="aba">
       <form id="form-registro" class="cartao">
         <label for="frase" class="rotulo">O que você comprou?</label>
@@ -64,7 +77,7 @@
     </section>
   </main>
 
-  <nav class="abas" role="tablist">
+  <nav class="abas" role="tablist" hidden>
     <button data-aba="registrar" role="tab">✏️<span>Registrar</span></button>
     <button data-aba="ontem" role="tab">🗓️<span>Ontem</span></button>
     <button data-aba="mes" role="tab">📊<span>Mês</span></button>
@@ -72,6 +85,7 @@
 
   <div id="toast" class="toast" hidden role="status"></div>
 
+  <script src="js/vendor/supabase-2.118.0.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>
