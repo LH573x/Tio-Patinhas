@@ -89,13 +89,19 @@ function doBanco(row) {
   };
 }
 
+function urlDoApp() {
+  return location.origin + location.pathname.replace(/index\.html$/, '');
+}
+
 function erroLegivel(error) {
   const m = (error && error.message) || String(error);
   if (/invalid login credentials/i.test(m)) return 'Email ou senha incorretos.';
   if (/email not confirmed/i.test(m)) return 'Falta confirmar o email (veja sua caixa de entrada).';
   if (/user already registered/i.test(m)) return 'Este email já tem conta. Use "Entrar".';
   if (/password should be at least/i.test(m)) return 'A senha precisa ter pelo menos 6 caracteres.';
+  if (/signups not allowed for otp|user not found/i.test(m)) return 'Não achei conta com esse email.';
   if (/signups not allowed/i.test(m)) return 'Novos cadastros estão desativados.';
+  if (/rate limit|security purposes|over_email_send_rate/i.test(m)) return 'Muitos pedidos seguidos. Espere alguns minutos e tente de novo.';
   if (/failed to fetch|network/i.test(m)) return 'Sem conexão com a internet.';
   if (/duplicate key|23505/i.test(m)) return 'Isso já tinha sido registrado antes.';
   if (/relation .* does not exist|could not find the table|schema cache/i.test(m)) {
@@ -139,6 +145,21 @@ export const store = {
   },
   email() {
     return usuarioAtual ? usuarioAtual.email : '';
+  },
+  // Link no email: abre o app de volta neste mesmo endereço.
+  async esqueciSenha(email) {
+    const { error } = await cliente.auth.resetPasswordForEmail(email, { redirectTo: urlDoApp() });
+    if (error) falhar(error);
+  },
+  async entrarComLink(email) {
+    const { error } = await cliente.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: urlDoApp() } });
+    if (error) falhar(error);
+  },
+  aoMudarLogin(f) {
+    cliente.auth.onAuthStateChange((evento, sessao) => {
+      if (sessao) usuarioAtual = sessao.user;
+      f(evento);
+    });
   },
   async trocarSenha(nova) {
     const { error } = await cliente.auth.updateUser({ password: nova });

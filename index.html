@@ -14,6 +14,10 @@
       if (t === 'escuro') document.documentElement.setAttribute('data-theme', 'dark');
       if (t === 'claro') document.documentElement.setAttribute('data-theme', 'light');
     } catch (e) {}
+    // Link do email (nova senha ou entrar sem senha): guarda o tipo antes do Supabase limpar o endereço.
+    if (/type=recovery/.test(location.hash)) window.__tpLinkEmail = 'senha';
+    else if (/type=magiclink/.test(location.hash)) window.__tpLinkEmail = 'entrar';
+    else if (/error_code=/.test(location.hash)) window.__tpLinkEmail = 'expirado';
   </script>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -43,8 +47,12 @@
       <label class="campo">Email<input id="login-email" type="email" autocomplete="email" required></label>
       <label class="campo">Senha<input id="login-senha" type="password" autocomplete="current-password" minlength="6" required></label>
       <button type="submit" class="btn primario largo">Entrar</button>
-      <button type="button" id="criar-conta" class="btn secundario largo">Criar conta</button>
+      <button type="button" id="entrar-link" class="btn secundario largo">Entrar sem senha (link no email)</button>
       <p id="login-aviso" class="aviso-login" role="status"></p>
+      <div class="login-links">
+        <button type="button" id="esqueci-senha" class="link">Esqueci minha senha</button>
+        <button type="button" id="criar-conta" class="link">Criar conta</button>
+      </div>
       <p class="dica centro">Seus registros ficam guardados na nuvem, protegidos pela sua conta.</p>
     </form>
   </section>
