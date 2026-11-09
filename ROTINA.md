@@ -10,8 +10,9 @@ Eles aparecem no card “Revisar ontem” e marcados com o selo *cupom* ou *extr
    baixa os envios pendentes e gera `caixa-hoje/pendentes.json` com a lista,
    as categorias válidas e o contexto de cada pessoa (registros dos últimos 75 dias e regras aprendidas).
 2. Para cada item, abre o arquivo (`Read` lê imagens e PDFs) e extrai os lançamentos:
-   - **cupom**: em geral um único gasto com o total pago, o nome do estabelecimento como item,
-     a data do cupom e a forma de pagamento se aparecer (Pix, Débito, Crédito, Dinheiro, Vale);
+   - **cupom**: em geral um único gasto com o total pago, o que foi comprado (ou o tipo de lugar) como item,
+     o nome do estabelecimento como `local`, a data e a hora do cupom (`hora` no formato HH:MM)
+     e a forma de pagamento se aparecer (Pix, Débito, Crédito, Dinheiro, Vale);
    - **extrato** (PDF ou print): uma linha por transação; ignora pagamento de fatura,
      transferências entre contas próprias e aplicações/resgates;
    - categoria: usa as regras aprendidas da pessoa; senão, a categoria que ela costuma usar para itens parecidos; senão, a mais provável;
@@ -22,8 +23,9 @@ Eles aparecem no card “Revisar ontem” e marcados com o selo *cupom* ou *extr
    ```json
    { "itens": [
      { "id": "<id do envio>", "registros": [
-       { "tipo": "gasto", "item": "Outback", "valor": 182.40, "data": "2026-11-08",
-         "categoria": "Namorada", "metodo": "Crédito", "descricao": "texto original da linha" } ] },
+       { "tipo": "gasto", "item": "Jantar", "local": "Outback Shopping Center", "hora": "20:41",
+         "valor": 182.40, "data": "2026-11-08", "categoria": "Namorada", "metodo": "Crédito",
+         "descricao": "texto original da linha" } ] },
      { "id": "<outro id>", "erro": "Foto desfocada, não deu pra ler o total" }
    ] }
    ```

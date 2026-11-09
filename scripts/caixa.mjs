@@ -89,6 +89,7 @@ function validar(r, i) {
   const cats = r.tipo === 'entrada' ? CATEGORIAS_ENTRADA : CATEGORIAS_GASTO;
   if (!cats.includes(r.categoria)) erros.push('categoria');
   if (r.metodo && !METODOS.includes(r.metodo)) erros.push('metodo');
+  if (r.hora && !/^([01]\d|2[0-3]):[0-5]\d$/.test(r.hora)) erros.push('hora');
   if (erros.length) throw new Error(`registro ${i + 1} inválido (${erros.join(', ')})`);
 }
 
@@ -112,6 +113,7 @@ async function gravar(arquivoSaida) {
       const linhas = regs.map((r, i) => ({
         user_id: c.user_id, tipo: r.tipo, item: r.item.trim().slice(0, 120), valor: Math.round(Number(r.valor) * 100) / 100,
         metodo: r.metodo || null, categoria: r.categoria, data: r.data, parcela: null,
+        local: r.local ? String(r.local).trim().slice(0, 80) : null, hora: r.hora || null,
         origem: c.tipo === 'cupom' ? 'cupom' : 'extrato',
         texto_original: r.descricao || c.observacao || null,
         ref_externa: `caixa:${c.id}:${i}`,

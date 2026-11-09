@@ -84,3 +84,17 @@ test('planoMeta', () => {
   assert.equal(p.porMes, 400);
   assert.equal(planoMeta({ valor_alvo: 100, valor_atual: 150 }, hoje).concluida, true);
 });
+
+test('porLocal junta nomes parecidos e ignora futuro', async () => {
+  const { porLocal } = await import('../js/analise.js');
+  const regs = [
+    { tipo: 'gasto', valor: 10, data: '2026-11-02', categoria: 'Refeições', local: 'Padaria do Zé' },
+    { tipo: 'gasto', valor: 5, data: '2026-11-05', categoria: 'Alimentação geral', local: 'padaria do ze' },
+    { tipo: 'gasto', valor: 4, data: '2026-11-06', categoria: 'Refeições', local: 'Padaria do Zé' },
+    { tipo: 'gasto', valor: 100, data: '2026-11-20', categoria: 'Carro', local: 'Posto' },
+    { tipo: 'gasto', valor: 50, data: '2026-11-03', categoria: 'Carro', local: null },
+  ];
+  const r = porLocal(regs, '2026-11', new Date(2026, 10, 9));
+  assert.equal(r.length, 1);
+  assert.deepEqual(r[0], { local: 'Padaria do Zé', valor: 19, vezes: 3, categoria: 'Refeições' });
+});

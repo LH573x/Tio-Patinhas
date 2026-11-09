@@ -40,8 +40,22 @@ function paraBanco(r) {
     origem: r.origem || 'texto',
     texto_original: r.textoOriginal || null,
     ref_externa: r.refExterna || null,
+    local: r.local || null,
+    hora: r.hora || null,
   };
 }
+
+// Banco ainda sem as colunas local/hora: grava sem elas até o schema.sql ser rodado de novo.
+let semLocalHora = false;
+function paraBancoCompat(r) {
+  const b = paraBanco(r);
+  if (semLocalHora) {
+    delete b.local;
+    delete b.hora;
+  }
+  return b;
+}
+const faltaLocalHora = (error) => /could not find the '(local|hora)' column|column .*(local|hora).* does not exist/i.test((error && error.message) || '');
 
 function doBanco(row) {
   return {
@@ -56,6 +70,8 @@ function doBanco(row) {
     origem: row.origem,
     textoOriginal: row.texto_original,
     refExterna: row.ref_externa || null,
+    local: row.local || null,
+    hora: row.hora ? String(row.hora).slice(0, 5) : null,
     criadoEm: row.criado_em,
   };
 }
@@ -133,6 +149,7 @@ export const store = {
       const { data, error } = await cliente
         .from('registros').select('*').order('data', { ascending: false }).range(de, de + passo - 1);
       if (error) falhar(error);
+      if (de === 0 && data.length && !('hora' in data[0])) semLocalHora = true;
       registros.push(...data.map(doBanco));
       if (data.length < passo) break;
     }
@@ -151,7 +168,7 @@ export const store = {
       metas: metas.error ? [] : metas.data.map(numerosMeta),
       caixa: caixa.error ? [] : caixa.data,
     };
-    this.bancoDesatualizado = Boolean(orcamentos.error || metas.error || caixa.error);
+    this.bancoDesatualizado = Boolean(orcamentos.error || metas.error || caixa.error || semLocalHora);
     salvarCache();
   },
   bancoDesatualizado: false,
@@ -162,13 +179,23 @@ export const store = {
     return cache.regras;
   },
   async adicionar(lancamentos) {
-    const { data, error } = await cliente.from('registros').insert(lancamentos.map(paraBanco)).select();
+    let { data, error } = await cliente.from('registros').insert(lancamentos.map(paraBancoCompat)).select();
+    if (error && faltaLocalHora(error) && !semLocalHora) {
+      semLocalHora = true;
+      this.bancoDesatualizado = true;
+      ({ data, error } = await cliente.from('registros').insert(lancamentos.map(paraBancoCompat)).select());
+    }
     if (error) falhar(error);
     cache.registros.push(...data.map(doBanco));
     salvarCache();
   },
   async atualizar(id, m) {
-    const { data, error } = await cliente.from('registros').update(paraBanco(m)).eq('id', id).select().single();
+    let { data, error } = await cliente.from('registros').update(paraBancoCompat(m)).eq('id', id).select().single();
+    if (error && faltaLocalHora(error) && !semLocalHora) {
+      semLocalHora = true;
+      this.bancoDesatualizado = true;
+      ({ data, error } = await cliente.from('registros').update(paraBancoCompat(m)).eq('id', id).select().single());
+    }
     if (error) falhar(error);
     cache.registros = cache.registros.map((r) => (r.id === id ? doBanco(data) : r));
     salvarCache();

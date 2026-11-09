@@ -60,6 +60,27 @@ export function porCategoria(registros) {
 }
 
 /**
+ * Lugares onde mais gastou no mês (só gastos com local preenchido).
+ * Junta "Padaria do Zé" e "padaria do ze". Retorna [{ local, valor, vezes, categoria }]
+ */
+export function porLocal(registros, mes, hoje) {
+  const mapa = new Map();
+  const ateDia = hoje && mesDe(iso(hoje)) === mes ? hoje.getDate() : 31;
+  for (const r of doMes(registros, mes, ateDia)) {
+    if (r.tipo !== 'gasto' || !r.local) continue;
+    const chave = r.local.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    const atual = mapa.get(chave) || { local: r.local, valor: 0, vezes: 0, cats: new Map() };
+    atual.valor = r2(atual.valor + r.valor);
+    atual.vezes += 1;
+    atual.cats.set(r.categoria, (atual.cats.get(r.categoria) || 0) + r.valor);
+    mapa.set(chave, atual);
+  }
+  return [...mapa.values()]
+    .map(({ cats, ...l }) => ({ ...l, categoria: [...cats.entries()].sort((a, b) => b[1] - a[1])[0][0] }))
+    .sort((a, b) => b.valor - a.valor);
+}
+
+/**
  * Resumo de um mês. Se for o mês atual, inclui a projeção até o fim do mês
  * e compara com o mês anterior até o mesmo dia (comparação justa).
  */

@@ -31,8 +31,8 @@ export function telaLancamentos(raiz, app) {
   const termo = semAcento(estado.busca.trim());
   const filtrados = todos
     .filter((r) => !estado.categoria || r.categoria === estado.categoria)
-    .filter((r) => !termo || semAcento(`${r.item} ${r.categoria} ${r.metodo || ''} ${r.textoOriginal || ''}`).includes(termo))
-    .sort((a, b) => b.data.localeCompare(a.data) || (b.criadoEm || '').localeCompare(a.criadoEm || ''));
+    .filter((r) => !termo || semAcento(`${r.item} ${r.categoria} ${r.metodo || ''} ${r.local || ''} ${r.textoOriginal || ''}`).includes(termo))
+    .sort((a, b) => b.data.localeCompare(a.data) || (b.hora || '').localeCompare(a.hora || '') || (b.criadoEm || '').localeCompare(a.criadoEm || ''));
 
   const dias = new Map();
   for (const r of filtrados) {
@@ -48,7 +48,7 @@ export function telaLancamentos(raiz, app) {
       ${seletorMes(app.mes)}
       <button type="button" class="chip-acao" id="btn-importar">${ICONES.importar}Importar extrato</button>
     </div>
-    <label class="busca">${ICONES.busca}<input type="search" id="busca" placeholder="Buscar (ex.: gasolina, pix)" value="${esc(estado.busca)}"></label>
+    <label class="busca">${ICONES.busca}<input type="search" id="busca" placeholder="Buscar (ex.: gasolina, pix, padaria)" value="${esc(estado.busca)}"></label>
     ${cats.length > 1 ? `<div class="chips-filtro" role="group" aria-label="Filtrar por categoria">
       <button type="button" class="chip-filtro ${estado.categoria ? '' : 'ativo'}" data-cat="">Todas</button>
       ${cats.map((c) => `<button type="button" class="chip-filtro ${estado.categoria === c ? 'ativo' : ''}" data-cat="${esc(c)}"

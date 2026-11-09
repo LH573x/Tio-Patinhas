@@ -26,6 +26,9 @@ begin
   alter table public.registros add column if not exists ref_externa text;
   create unique index if not exists registros_ref_externa
     on public.registros (user_id, ref_externa) where ref_externa is not null;
+  -- Onde foi a compra e a que horas (opcionais).
+  alter table public.registros add column if not exists local text;
+  alter table public.registros add column if not exists hora time;
 
   ---------------------------------------------------------------------------
   -- Regras aprendidas: "posto shell" => "Carro".
