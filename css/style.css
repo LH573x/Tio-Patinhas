@@ -231,6 +231,8 @@ main { max-width: 640px; margin: 0 auto; padding: 4px 16px calc(96px + env(safe-
 .login-marca p { margin: 4px 0 0; color: var(--texto-3); }
 .login form { display: flex; flex-direction: column; gap: 12px; padding: 20px; }
 .aviso-login { min-height: 1.2em; margin: 0; color: var(--negativo); font-size: 14px; text-align: center; }
+.aviso-login.ok { color: var(--positivo); }
+.login-links { display: flex; justify-content: space-between; gap: 12px; }
 
 /* ---------------------------------------------------------------- Destaque do mês (hero) */
 .destaque-mes { background: var(--hero-fundo); color: var(--hero-texto); border: 0; padding: 20px; }

@@ -116,7 +116,7 @@ function abrirAjustes() {
         x.setAttribute('aria-checked', String(ativo));
       });
     }));
-    $('#trocar-senha', folha).addEventListener('click', abrirTrocarSenha);
+    $('#trocar-senha', folha).addEventListener('click', () => abrirTrocarSenha());
     $('#sair', folha).addEventListener('click', async () => {
       if (!(await confirmar('Sair da conta neste aparelho? Seus dados continuam guardados na nuvem.', { sim: 'Sair', perigo: true }))) return;
       await store.sair();
@@ -193,8 +193,8 @@ document.addEventListener('click', (e) => {
   }
 });
 
-function abrirTrocarSenha() {
-  abrirFolha('Trocar senha', `
+function abrirTrocarSenha(titulo = 'Trocar senha') {
+  abrirFolha(titulo, `
     <form class="formulario" id="form-senha">
       <label class="campo">Nova senha<input name="senha" type="password" autocomplete="new-password" minlength="6" required></label>
       <label class="campo">Repita a nova senha<input name="repetir" type="password" autocomplete="new-password" minlength="6" required></label>
@@ -231,6 +231,10 @@ function mostrarApp(logado) {
 async function aoEntrar() {
   mostrarApp(true);
   app.irPara(app.aba, { rolar: false }); // mostra a cópia local na hora
+  if (pedirNovaSenha) {
+    pedirNovaSenha = false;
+    abrirTrocarSenha('Crie sua nova senha');
+  }
   try {
     await store.carregar();
     const migrados = await store.migrarDadosAntigos();
@@ -273,6 +277,40 @@ $('#form-login').addEventListener('submit', (e) => {
 });
 $('#criar-conta').addEventListener('click', () => enviarLogin('cadastrar'));
 
+// Sem senha: o Supabase manda um link por email que abre o app já logado.
+async function pedirLink(tipo) {
+  const email = $('#login-email').value.trim();
+  const msg = $('#login-aviso');
+  msg.classList.remove('ok');
+  if (!email) {
+    msg.textContent = 'Digite seu email acima.';
+    $('#login-email').focus();
+    return;
+  }
+  msg.textContent = 'Enviando…';
+  try {
+    if (tipo === 'senha') await store.esqueciSenha(email);
+    else await store.entrarComLink(email);
+    msg.classList.add('ok');
+    msg.textContent = tipo === 'senha'
+      ? `Pronto! Abra o email que mandei para ${email} e toque no link pra criar uma senha nova.`
+      : `Pronto! Abra o email que mandei para ${email} e toque no link pra entrar.`;
+  } catch (e) {
+    msg.textContent = e.message;
+  }
+}
+$('#esqueci-senha').addEventListener('click', () => pedirLink('senha'));
+$('#entrar-link').addEventListener('click', () => pedirLink('entrar'));
+
+let pedirNovaSenha = window.__tpLinkEmail === 'senha';
+store.aoMudarLogin((evento) => {
+  if (evento === 'PASSWORD_RECOVERY') pedirNovaSenha = true;
+  if (pedirNovaSenha && !$('#app').hidden) {
+    pedirNovaSenha = false;
+    abrirTrocarSenha('Crie sua nova senha');
+  }
+});
+
 // Ao voltar para o app depois de um tempo, busca novidades (ex.: cupons lidos de madrugada).
 let ultimaCarga = Date.now();
 document.addEventListener('visibilitychange', async () => {
@@ -288,7 +326,14 @@ document.addEventListener('visibilitychange', async () => {
 const pedida = new URLSearchParams(location.search).get('aba');
 app.aba = ABAS[pedida] ? pedida : ANTIGAS[pedida] || 'inicio';
 store.usuario()
-  .then((u) => (u ? aoEntrar() : mostrarApp(false)))
+  .then((u) => {
+    if (u) return aoEntrar();
+    mostrarApp(false);
+    if (window.__tpLinkEmail === 'expirado') {
+      $('#login-aviso').textContent = 'Esse link do email expirou ou já foi usado. Peça outro abaixo.';
+    }
+    return null;
+  })
   .catch(() => mostrarApp(false));
 
 if ('serviceWorker' in navigator) {
