@@ -100,7 +100,7 @@ export function sugerirCategoria(texto, tipo = 'gasto', regras = []) {
  * Interpreta uma frase livre.
  * Retorna { tipo, item, valor, metodo, categoria, data, parcelas, valorParcela, local, hora, textoOriginal, completo }
  */
-export function interpretar(frase, { hoje = new Date(), regras = [] } = {}) {
+export function interpretar(frase, { hoje = new Date(), regras = [], cartoes = [] } = {}) {
   const textoOriginal = frase.trim();
   const norm = semAcento(textoOriginal);
 
@@ -150,10 +150,28 @@ export function interpretar(frase, { hoje = new Date(), regras = [] } = {}) {
 
   const termosMetodo = new Set(PALAVRAS_METODO.flatMap(([, ts]) => ts.filter((t) => !t.includes(' '))));
   const normTok = (tok) => semAcento(tok || '').replace(/[.,;:!?]+$/, '');
+  const usados = new Set();
+
+  // Cartão pelo nome: "mercado 200 nubank", "jantar 90 no itaú" (o nome mais longo vence)
+  let cartaoId = null;
+  let melhor = 0;
+  for (const c of cartoes) {
+    const partes = semAcento(c.nome || '').split(/\s+/).filter(Boolean);
+    if (!partes.length) continue;
+    for (let i = 0; i + partes.length <= tokens.length; i++) {
+      if (!partes.every((p, k) => normTok(tokens[i + k]) === p)) continue;
+      if (partes.length <= melhor) continue;
+      melhor = partes.length;
+      cartaoId = c.id;
+      for (let k = 0; k < partes.length; k++) usados.add(i + k);
+      if (['no', 'na', 'pelo', 'pela', 'com'].includes(normTok(tokens[i - 1]))) usados.add(i - 1);
+    }
+  }
+  if (cartaoId && (!metodo || metodo === 'Crédito')) metodo = 'Crédito';
+  else if (cartaoId) cartaoId = null; // "débito nubank": não é compra no cartão de crédito
 
   // Horário: "15h", "15h30", "15:30", "às 9h", "meio-dia"
   let hora = null;
-  const usados = new Set();
   tokens.forEach((tok, i) => {
     if (hora) return;
     const n = semAcento(tok).replace(/[.,;!?]+$/, '');
@@ -230,6 +248,7 @@ export function interpretar(frase, { hoje = new Date(), regras = [] } = {}) {
     valorParcela,
     local,
     hora,
+    cartaoId,
     textoOriginal,
     completo: valor !== null,
   };

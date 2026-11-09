@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resumoMes, historicoMeses, statusLimites, resumoSemana, dicas, planoMeta } from '../js/analise.js';
+import { resumoMes, historicoMeses, statusLimites, resumoSemana, dicas, planoMeta, statusContas, rotuloVencimento, previsaoGastos, refConta, faturaDaCompra, faturasCartoes, diaNoMes, cruzouLimite, avisosDoDia } from '../js/analise.js';
 
 const g = (data, item, valor, categoria, extra = {}) => ({ id: `${data}-${item}-${valor}`, tipo: 'gasto', data, item, valor, categoria, ...extra });
 const e = (data, item, valor, categoria = 'Salário') => ({ id: `${data}-${item}`, tipo: 'entrada', data, item, valor, categoria });
@@ -97,4 +97,129 @@ test('porLocal junta nomes parecidos e ignora futuro', async () => {
   const r = porLocal(regs, '2026-11', new Date(2026, 10, 9));
   assert.equal(r.length, 1);
   assert.deepEqual(r[0], { local: 'Padaria do Zé', valor: 19, vezes: 3, categoria: 'Refeições' });
+});
+
+// ---------------------------------------------------------------- Contas fixas
+const contas = [
+  { id: 'luz', nome: 'Luz', valor: 180, dia_vencimento: 10, ativa: true },
+  { id: 'aluguel', nome: 'Aluguel', valor: 1500, dia_vencimento: 5, ativa: true },
+  { id: 'net', nome: 'Internet', valor: 100, dia_vencimento: 13, ativa: true },
+  { id: 'agua', nome: 'Água', valor: 80, dia_vencimento: 3, ativa: true },
+  { id: 'velha', nome: 'Academia', valor: 90, dia_vencimento: 20, ativa: false },
+  { id: 'fev', nome: 'Fim do mês', valor: 50, dia_vencimento: 31, ativa: true },
+];
+
+test('statusContas: paga, atrasada, hoje, breve e futura; ignora inativas', () => {
+  const pagos = [g('2026-11-05', 'Aluguel', 1500, 'Outros', { refExterna: refConta('aluguel', '2026-11') }),
+    g('2026-10-03', 'Água', 80, 'Outros', { refExterna: refConta('agua', '2026-10') })]; // pagou o mês passado, não este
+  const s = statusContas(contas, pagos, hoje);
+  const por = Object.fromEntries(s.map((x) => [x.conta.id, x]));
+  assert.equal(por.aluguel.estado, 'paga');
+  assert.equal(por.agua.estado, 'atrasada');
+  assert.equal(por.agua.dias, -7);
+  assert.equal(por.luz.estado, 'hoje');
+  assert.equal(por.net.estado, 'breve');
+  assert.equal(por.fev.estado, 'futura');
+  assert.equal(por.fev.vencimento, '2026-11-30'); // novembro tem 30 dias
+  assert.equal(por.velha, undefined);
+  assert.deepEqual(s.map((x) => x.conta.id), ['agua', 'aluguel', 'luz', 'net', 'fev']);
+});
+
+test('rotuloVencimento', () => {
+  assert.equal(rotuloVencimento(0), 'Vence hoje');
+  assert.equal(rotuloVencimento(1), 'Vence amanhã');
+  assert.equal(rotuloVencimento(3), 'Em 3 dias');
+  assert.equal(rotuloVencimento(12, { diaDoMes: 22 }), 'Dia 22');
+  assert.equal(rotuloVencimento(-1), 'Venceu ontem');
+  assert.equal(rotuloVencimento(-4), 'Atrasada há 4 dias');
+  assert.equal(rotuloVencimento(-4, { pago: true }), 'Paga');
+  assert.equal(diaNoMes(31, '2028-02'), '2028-02-29');
+});
+
+test('previsão do mês: ritmo do dia a dia + contas fixas e parcelas pelo valor certo', () => {
+  const lista = [
+    g('2026-11-02', 'Mercado', 100, 'Alimentação geral'),
+    g('2026-11-08', 'Almoço', 100, 'Refeições'),
+    g('2026-11-05', 'Aluguel', 1500, 'Outros', { refExterna: refConta('aluguel', '2026-11') }),
+    g('2026-11-04', 'Tênis', 200, 'Outros', { parcela: '1/3' }),
+    g('2026-11-25', 'Curso', 300, 'Outros', { parcela: '2/5' }), // parcela mais tarde no mês
+  ];
+  const so = [contas[0], contas[1]]; // luz pendente (180) e aluguel pago
+  // variáveis: 200 em 10 dias -> 600 no mês; + aluguel 1500 + tênis 200 + curso 300 + luz 180
+  assert.equal(previsaoGastos(lista, so, hoje), 2780);
+  assert.equal(resumoMes(lista, '2026-11', hoje, { contas: so }).projecao, 2780);
+  // sem contas cadastradas: só o ritmo + fixos já lançados
+  assert.equal(previsaoGastos(lista, [], hoje), 2600);
+});
+
+// ---------------------------------------------------------------- Cartões
+const nubank = { id: 'nu', nome: 'Nubank', dia_fechamento: 3, dia_vencimento: 10, limite: 5000 };
+const itau = { id: 'it', nome: 'Itaú', dia_fechamento: 25, dia_vencimento: 5, limite: null };
+
+test('faturaDaCompra: fechamento manda a compra para a fatura seguinte', () => {
+  assert.deepEqual(faturaDaCompra('2026-11-02', nubank), { fechamento: '2026-11-03', vencimento: '2026-11-10' });
+  assert.deepEqual(faturaDaCompra('2026-11-03', nubank), { fechamento: '2026-12-03', vencimento: '2026-12-10' });
+  // vencimento antes do fechamento no calendário: vence no mês seguinte ao fechamento
+  assert.deepEqual(faturaDaCompra('2026-11-20', itau), { fechamento: '2026-11-25', vencimento: '2026-12-05' });
+  assert.deepEqual(faturaDaCompra('2026-11-26', itau), { fechamento: '2026-12-25', vencimento: '2027-01-05' });
+});
+
+test('faturasCartoes: fatura atual, próxima, parcelas e limite usado', () => {
+  const lista = [
+    g('2026-11-01', 'Gasolina', 200, 'Carro', { cartaoId: 'nu' }), // fatura 10/11 (fechada dia 3)
+    g('2026-11-06', 'Jantar', 150, 'Refeições', { cartaoId: 'nu' }), // fatura 10/12
+    g('2026-11-06', 'Tênis', 100, 'Outros', { cartaoId: 'nu', parcela: '1/3' }),
+    g('2026-12-06', 'Tênis', 100, 'Outros', { cartaoId: 'nu', parcela: '2/3' }),
+    g('2027-01-06', 'Tênis', 100, 'Outros', { cartaoId: 'nu', parcela: '3/3' }),
+    g('2026-10-01', 'Antiga', 999, 'Outros', { cartaoId: 'nu' }), // venceu em 10/10: paga
+    g('2026-11-07', 'Pix', 50, 'Outros'), // sem cartão
+  ];
+  const [nu, it] = faturasCartoes(lista, [nubank, itau], hoje);
+  assert.equal(nu.atual.vencimento, '2026-11-10');
+  assert.equal(nu.atual.valor, 200);
+  assert.equal(nu.atual.fechada, true);
+  assert.equal(nu.proxima.vencimento, '2026-12-10');
+  assert.equal(nu.proxima.valor, 250);
+  assert.equal(nu.proxima.fechada, false);
+  assert.equal(nu.usado, 650);
+  assert.equal(nu.disponivel, 4350);
+  // cartão sem gastos: mostra a fatura que está aberta agora, zerada
+  assert.equal(it.atual.valor, 0);
+  assert.equal(it.atual.vencimento, '2026-12-05');
+  assert.equal(it.disponivel, null);
+});
+
+// ---------------------------------------------------------------- Alertas e card do dia
+test('cruzouLimite: avisa só quando cruza 80% ou 100%', () => {
+  const orc = [{ categoria: 'Refeições', limite: 500 }];
+  const antes = [g('2026-11-02', 'Almoço', 350, 'Refeições')];
+  assert.deepEqual(cruzouLimite(antes, [g('2026-11-10', 'Pizza', 60, 'Refeições')], orc, hoje),
+    [{ categoria: 'Refeições', pct: 0.82, marco: 0.8 }]);
+  assert.equal(cruzouLimite(antes, [g('2026-11-10', 'Pizza', 200, 'Refeições')], orc, hoje)[0].marco, 1);
+  assert.deepEqual(cruzouLimite(antes, [g('2026-11-10', 'Café', 10, 'Refeições')], orc, hoje), []); // 72%: ainda não
+  assert.deepEqual(cruzouLimite(antes, [g('2026-11-10', 'Gasolina', 900, 'Carro')], orc, hoje), []); // sem limite
+  // parcela futura não conta no mês de hoje
+  assert.deepEqual(cruzouLimite(antes, [g('2026-12-10', 'Jantar', 300, 'Refeições')], orc, hoje), []);
+});
+
+test('avisosDoDia: contas e faturas primeiro, depois limites, ritmo e caixa', () => {
+  const lista = [
+    g('2026-11-02', 'Almoço', 420, 'Refeições'),
+    g('2026-11-01', 'Gasolina', 200, 'Carro', { cartaoId: 'nu' }), // fatura do Nubank vence 10/11 (hoje)
+  ];
+  const avisos = avisosDoDia({ registros: lista, orcamentos: [{ categoria: 'Refeições', limite: 500 }, { categoria: 'Carro', limite: 500 }],
+    contas, cartoes: [nubank], caixaPendentes: 2, hoje, maximo: 10 });
+  const tipos = avisos.map((a) => a.tipo);
+  assert.deepEqual(tipos, ['conta', 'conta', 'conta', 'conta', 'fatura', 'limite', 'ritmo', 'caixa']);
+  assert.equal(avisos[0].texto, 'Água venceu há 7 dias');
+  assert.equal(avisos[1].texto, 'Aluguel venceu há 5 dias');
+  assert.equal(avisos[2].texto, 'Luz vence hoje');
+  assert.equal(avisos[3].texto, 'Internet vence em 3 dias');
+  assert.equal(avisos[4].texto, 'Fatura do Nubank vence hoje');
+  assert.equal(avisos[5].texto, 'Refeições já usou 84% do limite');
+  // planejado 1000, gasto 620, 21 dias contando hoje -> R$ 18/dia
+  assert.match(avisos[6].texto, /^Dá pra gastar R\$\s?18 por dia/);
+  assert.equal(avisos[7].texto, '2 envios esperando a leitura de madrugada');
+  assert.equal(avisosDoDia({ registros: [], hoje }).length, 0);
+  assert.equal(avisosDoDia({ registros: lista, contas, cartoes: [nubank], hoje }).length, 4); // máximo padrão
 });

@@ -74,7 +74,7 @@ export function numeroParaCampo(v) {
 /** Faixa que pede para rodar o schema.sql de novo quando o banco está desatualizado. */
 export function avisoBanco(ativo) {
   if (!ativo) return '';
-  return `<div class="aviso-banco">${ICONES.alerta}<span>Falta atualizar o banco pra usar todas as novidades (limites, metas, fotos, local e horário):
+  return `<div class="aviso-banco">${ICONES.alerta}<span>Falta atualizar o banco pra usar todas as novidades (contas fixas, cartões, limites, metas, fotos, local e horário):
     rode de novo o arquivo <b>schema.sql</b> no SQL Editor do Supabase, com “Primary Database” selecionado.</span></div>`;
 }
 
@@ -165,5 +165,7 @@ export const ICONES = {
   sair: svg('<path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h11"/>'),
   chave: svg('<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3"/>'),
   ideia: svg('<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>'),
+  cartao: svg('<rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6 15h4"/>'),
+  calendario: svg('<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>'),
   importar: svg('<path d="M12 3v12M7 10l5 5 5-5M4 19h16"/>'),
 };

@@ -493,3 +493,39 @@ main { max-width: 640px; margin: 0 auto; padding: 4px 16px calc(96px + env(safe-
 }
 .lista-locais li span:nth-child(2) { display: flex; flex-direction: column; min-width: 0; }
 .lista-locais small { font-size: 12px; }
+
+/* ---------------------------------------------------------------- Seu dia */
+.avisos-dia { list-style: none; margin: 4px 0 0; padding: 0; }
+.aviso-dia { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--borda); }
+.aviso-dia:last-child { border-bottom: 0; padding-bottom: 2px; }
+.aviso-icone { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; background: var(--superficie-2); color: var(--texto-2); }
+.aviso-icone svg { width: 18px; height: 18px; }
+.aviso-dia.atencao .aviso-icone { background: color-mix(in srgb, var(--atencao) 15%, transparent); color: var(--atencao); }
+.aviso-dia.estourou .aviso-icone { background: color-mix(in srgb, var(--estourou) 13%, transparent); color: var(--estourou); }
+.aviso-dia.ok .aviso-icone { background: var(--destaque-suave); color: var(--destaque); }
+.aviso-texto { flex: 1; min-width: 0; font-weight: 550; font-size: 14.5px; line-height: 1.3; }
+.aviso-texto small { display: block; font-weight: 450; font-size: 12.5px; margin-top: 1px; }
+.dia .dica-inline::first-letter { text-transform: uppercase; }
+
+/* ---------------------------------------------------------------- Contas fixas e cartões */
+.lista-contas { list-style: none; margin: 4px 0 0; padding: 0; }
+.conta-linha { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--borda); }
+.conta-linha:last-child { border-bottom: 0; }
+.conta-info { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; text-align: left; border: 0; background: none; padding: 0; }
+.conta-nome { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conta-nome svg { width: 18px; height: 18px; color: var(--texto-3); }
+.conta-detalhe { font-size: 12.5px; color: var(--texto-3); }
+.conta-lado { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; line-height: 1.2; }
+.conta-lado small { font-size: 12px; }
+.conta-linha .chip-acao.pequeno { flex-shrink: 0; }
+
+.valor-medio { font-size: 28px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; margin-top: 4px; }
+.dica.sem-margem { margin-top: 0; }
+.lista-faturas { list-style: none; margin: 10px 0 0; padding: 0; }
+.fatura { padding: 12px 0; border-top: 1px solid var(--borda); display: flex; flex-direction: column; gap: 8px; }
+.fatura-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; border: 0; background: none; padding: 0; text-align: left; }
+.fatura-nome { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.fatura-nome svg { width: 20px; height: 20px; color: var(--texto-3); }
+.fatura-valor { font-size: 16px; }
+.fatura-linha { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fatura-limite { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; color: var(--texto-3); margin-top: -2px; }

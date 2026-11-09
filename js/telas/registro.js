@@ -3,6 +3,7 @@ import { CATEGORIAS_GASTO, CATEGORIAS_ENTRADA, METODOS } from '../parser.js';
 import { store } from '../store.js';
 import { $, $$, esc, reais, selo, abrirFolha, confirmar, aviso, lerNumero, numeroParaCampo, ICONES } from '../util.js';
 import { infoCategoria } from '../categorias.js';
+import { opcoesCartao } from './cartoes.js';
 
 export function bolinha(categoria, app) {
   const info = infoCategoria(categoria);
@@ -51,6 +52,8 @@ export function editarRegistro(r, app) {
         <label class="campo">Categoria<select name="categoria">${opcoes(cats, r.categoria)}</select></label>
         <label class="campo">Pagamento<select name="metodo"><option value="">—</option>${opcoes(METODOS, r.metodo)}</select></label>
       </div>
+      ${r.tipo === 'gasto' && store.cartoes().length ? `
+        <label class="campo" id="campo-cartao" ${r.metodo === 'Crédito' ? '' : 'hidden'}>Cartão<select name="cartao">${opcoesCartao(r.cartaoId)}</select></label>` : ''}
       <div class="dupla">
         <label class="campo">Local<input name="local" value="${esc(r.local || '')}" placeholder="opcional"></label>
         <label class="campo">Horário<input name="hora" type="time" value="${r.hora || ''}"></label>
@@ -61,6 +64,10 @@ export function editarRegistro(r, app) {
         <button type="submit" class="btn primario">Salvar</button>
       </div>
     </form>`, (folha, fechar) => {
+    $('select[name=metodo]', folha).addEventListener('change', (e) => {
+      const campo = $('#campo-cartao', folha);
+      if (campo) campo.hidden = e.target.value !== 'Crédito';
+    });
     $('#form-editar', folha).addEventListener('submit', async (e) => {
       e.preventDefault();
       const f = new FormData(e.target);
@@ -69,8 +76,10 @@ export function editarRegistro(r, app) {
         aviso('Valor inválido', 'erro');
         return;
       }
-      const m = { ...r, item: f.get('item').trim(), valor, data: f.get('data'), categoria: f.get('categoria'), metodo: f.get('metodo') || null,
-        local: f.get('local').trim() || null, hora: f.get('hora') || null };
+      const metodo = f.get('metodo') || null;
+      const m = { ...r, item: f.get('item').trim(), valor, data: f.get('data'), categoria: f.get('categoria'), metodo,
+        local: f.get('local').trim() || null, hora: f.get('hora') || null,
+        cartaoId: metodo === 'Crédito' ? (f.get('cartao') ?? r.cartaoId) || null : null };
       try {
         if (m.categoria !== r.categoria) await store.aprenderRegra(m.item, m.categoria);
         await store.atualizar(r.id, m);

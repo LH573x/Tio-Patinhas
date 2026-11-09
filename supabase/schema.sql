@@ -86,6 +86,39 @@ begin
   create index if not exists caixa_entrada_status on public.caixa_entrada (status, criado_em);
 
   ---------------------------------------------------------------------------
+  -- Contas fixas (aluguel, luz, internet...): valor e dia do vencimento.
+  -- O pagamento de cada mês é um registro com ref_externa = 'conta:<id>:<AAAA-MM>',
+  -- então pagar duas vezes no mesmo mês é barrado pelo índice único acima.
+  ---------------------------------------------------------------------------
+  create table if not exists public.contas_fixas (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+    nome text not null,
+    valor numeric(12, 2) not null check (valor >= 0),
+    dia_vencimento integer not null check (dia_vencimento between 1 and 31),
+    categoria text not null default 'Outros',
+    metodo text,
+    ativa boolean not null default true,
+    criado_em timestamptz not null default now()
+  );
+
+  ---------------------------------------------------------------------------
+  -- Cartões de crédito: dia de fechamento, dia de vencimento e limite.
+  ---------------------------------------------------------------------------
+  create table if not exists public.cartoes (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+    nome text not null,
+    dia_fechamento integer not null check (dia_fechamento between 1 and 31),
+    dia_vencimento integer not null check (dia_vencimento between 1 and 31),
+    limite numeric(12, 2) check (limite >= 0),
+    cor text,
+    criado_em timestamptz not null default now()
+  );
+  -- Em qual cartão foi o gasto no crédito (opcional).
+  alter table public.registros add column if not exists cartao_id uuid references public.cartoes (id) on delete set null;
+
+  ---------------------------------------------------------------------------
   -- Segurança: cada pessoa só vê e mexe nos próprios dados.
   ---------------------------------------------------------------------------
   alter table public.registros enable row level security;
@@ -93,6 +126,8 @@ begin
   alter table public.orcamentos enable row level security;
   alter table public.metas enable row level security;
   alter table public.caixa_entrada enable row level security;
+  alter table public.contas_fixas enable row level security;
+  alter table public.cartoes enable row level security;
 
   drop policy if exists "registros do dono" on public.registros;
   create policy "registros do dono" on public.registros for all to authenticated
@@ -112,6 +147,14 @@ begin
 
   drop policy if exists "caixa do dono" on public.caixa_entrada;
   create policy "caixa do dono" on public.caixa_entrada for all to authenticated
+    using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+
+  drop policy if exists "contas fixas do dono" on public.contas_fixas;
+  create policy "contas fixas do dono" on public.contas_fixas for all to authenticated
+    using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+
+  drop policy if exists "cartoes do dono" on public.cartoes;
+  create policy "cartoes do dono" on public.cartoes for all to authenticated
     using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
   ---------------------------------------------------------------------------

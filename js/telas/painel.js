@@ -5,6 +5,7 @@ import { $$, esc, reais, pct, dataCurta, ICONES } from '../util.js';
 import { rosca, barrasMeses, progresso, estadoLimite } from '../graficos.js';
 import { bolinha, linhaRegistro, ligarRegistros } from './registro.js';
 import { seletorMes, ligarSeletorMes } from './lancamentos.js';
+import { cardFaturas, ligarFaturas } from './cartoes.js';
 
 const ROTULO_ESTADO = {
   ok: { texto: 'dentro do limite', icone: ICONES.ok },
@@ -15,7 +16,7 @@ const ROTULO_ESTADO = {
 export function telaPainel(raiz, app) {
   const hoje = new Date();
   const registros = store.listar();
-  const r = resumoMes(registros, app.mes, hoje);
+  const r = resumoMes(registros, app.mes, hoje, { contas: store.contas() });
   const limites = new Map(statusLimites(registros, store.orcamentos(), app.mes, hoje).map((l) => [l.categoria, l]));
   const historico = historicoMeses(registros, app.mes, 6, hoje);
   const atual = mesDe(iso(hoje));
@@ -67,6 +68,8 @@ export function telaPainel(raiz, app) {
         <div class="kpi-sub"><span class="dica-inline">no ritmo de ${reais(r.gasto / Math.max(r.dia, 1), { centavos: false })}/dia</span></div></div>` : ''}
     </section>
 
+    ${ehAtual ? cardFaturas(app) : ''}
+
     <section class="cartao">
       <div class="cartao-topo"><h2>Para onde foi o dinheiro</h2></div>
       ${fatias.length ? `
@@ -111,6 +114,7 @@ export function telaPainel(raiz, app) {
     </section>` : ''}`;
 
   ligarSeletorMes(raiz, app);
+  ligarFaturas(raiz, app);
   ligarRegistros(raiz, app);
   $$('.barra-mes', raiz).forEach((g) => {
     const ir = () => { app.mes = g.dataset.mes; app.render(); };

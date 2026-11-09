@@ -1,8 +1,10 @@
-// Limites por categoria e metas de economia.
+// Contas fixas, cartões, limites por categoria e metas de economia.
 import { CATEGORIAS_GASTO } from '../parser.js';
 import { statusLimites, resumoMes, historicoMeses, planoMeta, mesDe, iso, nomeMes, somarMesesMes, doMes } from '../analise.js';
 import { store } from '../store.js';
 import { $, $$, esc, reais, pct, abrirFolha, confirmar, aviso, lerNumero, numeroParaCampo, ICONES, avisoBanco } from '../util.js';
+import { cardContas, ligarContas } from './contas.js';
+import { cardCartoes, ligarCartoes } from './cartoes.js';
 import { progresso, estadoLimite } from '../graficos.js';
 import { bolinha } from './registro.js';
 
@@ -133,6 +135,8 @@ export function telaMetas(raiz, app) {
 
   raiz.innerHTML = `
     ${avisoBanco(store.bancoDesatualizado)}
+    ${cardContas(app)}
+    ${cardCartoes(app)}
     <section class="cartao">
       <div class="cartao-topo"><h2>Limites de ${nomeMes(mes, { ano: false })}</h2>
         ${totalLimites ? `<span class="dica">${reais(r.gasto, { centavos: false })} de ${reais(totalLimites, { centavos: false })}</span>` : ''}</div>
@@ -171,6 +175,8 @@ export function telaMetas(raiz, app) {
       }).join('')}</ul>` : '<p class="vazio">Nenhuma meta ainda. Que tal uma reserva de emergência ou uma viagem?</p>'}
     </section>`;
 
+  ligarContas(raiz, app);
+  ligarCartoes(raiz, app);
   $$('.limite-linha', raiz).forEach((b) => b.addEventListener('click', () => editarLimite(b.dataset.cat, app)));
   $('#nova-meta', raiz).addEventListener('click', () => editarMeta(null, app));
   $$('.meta-linha', raiz).forEach((el) => {
