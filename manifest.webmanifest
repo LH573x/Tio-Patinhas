@@ -1,20 +1,22 @@
 {
+  "id": "./",
   "name": "Tio Patinhas",
   "short_name": "Tio Patinhas",
   "description": "Meu assessor de gastos pessoais",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f4f1ea",
-  "theme_color": "#1f3a5f",
+  "orientation": "portrait",
+  "background_color": "#0f1f1a",
+  "theme_color": "#f5f6f4",
   "lang": "pt-BR",
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "Revisar ontem", "url": "./?aba=ontem" },
-    { "name": "Resumo do mês", "url": "./?aba=mes" }
+    { "name": "Registrar gasto", "url": "./?aba=inicio" },
+    { "name": "Painel do mês", "url": "./?aba=painel" }
   ]
 }

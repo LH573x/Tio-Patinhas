@@ -5,85 +5,57 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Tio Patinhas</title>
   <meta name="description" content="Meu assessor de gastos pessoais">
-  <meta name="theme-color" content="#1f3a5f">
+  <meta name="theme-color" content="#f5f6f4">
+  <meta name="color-scheme" content="light dark">
+  <script>
+    // Aplica o tema antes de desenhar a tela, para não piscar.
+    try {
+      var t = localStorage.getItem('tp.tema');
+      if (t === 'escuro') document.documentElement.setAttribute('data-theme', 'dark');
+      if (t === 'claro') document.documentElement.setAttribute('data-theme', 'light');
+    } catch (e) {}
+  </script>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <header class="topo">
-    <div>
-      <h1>Tio Patinhas</h1>
-      <p class="sub">Gastos do mês: <strong id="total-mes">R$ 0,00</strong></p>
+  <header class="topo" hidden>
+    <img src="icons/logo.svg" alt="" width="32" height="32" class="logo">
+    <div class="topo-texto">
+      <span class="marca">Tio Patinhas</span>
+      <h1 id="titulo-aba">Início</h1>
     </div>
-    <button id="sair" class="sair" type="button" hidden>Sair</button>
+    <button type="button" id="btn-ajustes" class="avatar" aria-label="Ajustes e conta">?</button>
   </header>
 
   <section id="tela-login" class="login" hidden>
+    <div class="login-marca">
+      <img src="icons/icon.svg" alt="" width="88" height="88">
+      <h1>Tio Patinhas</h1>
+      <p>Seu assessor de gastos</p>
+    </div>
     <form id="form-login" class="cartao">
-      <h2>Entrar</h2>
-      <p class="dica">Seus registros ficam guardados na nuvem, protegidos pela sua conta.</p>
-      <label>Email<input id="login-email" type="email" autocomplete="email" required></label>
-      <label>Senha<input id="login-senha" type="password" autocomplete="current-password" minlength="6" required></label>
-      <button type="submit" class="primario largo">Entrar</button>
-      <button type="button" id="criar-conta" class="secundario largo">Criar conta</button>
-      <p id="login-aviso" class="aviso" role="status"></p>
+      <label class="campo">Email<input id="login-email" type="email" autocomplete="email" required></label>
+      <label class="campo">Senha<input id="login-senha" type="password" autocomplete="current-password" minlength="6" required></label>
+      <button type="submit" class="btn primario largo">Entrar</button>
+      <button type="button" id="criar-conta" class="btn secundario largo">Criar conta</button>
+      <p id="login-aviso" class="aviso-login" role="status"></p>
+      <p class="dica centro">Seus registros ficam guardados na nuvem, protegidos pela sua conta.</p>
     </form>
   </section>
 
   <main id="app" hidden>
-    <section id="aba-registrar" class="aba">
-      <form id="form-registro" class="cartao">
-        <label for="frase" class="rotulo">O que você comprou?</label>
-        <div class="linha-entrada">
-          <input id="frase" type="text" autocomplete="off" enterkeyhint="send"
-                 placeholder="salgado 8,50 pix">
-          <button type="submit" class="primario" aria-label="Registrar">Registrar</button>
-        </div>
-        <p class="dica">Dica: toque no microfone do teclado para falar. Ex.: "gasolina 200 crédito", "tênis 600 em 3x", "recebi salário 3500".</p>
-        <div id="previa" class="previa" hidden></div>
-        <div class="anexos">
-          <button type="button" disabled title="Chega na etapa 3">📷 Foto do cupom <small>em breve</small></button>
-          <button type="button" disabled title="Chega na etapa 3">📄 Extrato <small>em breve</small></button>
-        </div>
-      </form>
-
-      <div class="cartao">
-        <div class="cabecalho-lista"><h2>Hoje</h2><span id="total-hoje">R$ 0,00</span></div>
-        <div id="lista-hoje"></div>
-      </div>
-    </section>
-
-    <section id="aba-ontem" class="aba" hidden>
-      <div class="cartao">
-        <div class="cabecalho-lista"><h2 id="titulo-ontem">Ontem</h2><span id="total-ontem">R$ 0,00</span></div>
-        <p class="dica">Toque num item para corrigir. Se mudar a categoria, eu aprendo para a próxima vez.</p>
-        <div id="lista-ontem"></div>
-      </div>
-    </section>
-
-    <section id="aba-mes" class="aba" hidden>
-      <div class="resumo">
-        <div class="kpi"><span>Gastos</span><strong id="mes-gastos">R$ 0,00</strong></div>
-        <div class="kpi"><span>Entradas</span><strong id="mes-entradas">R$ 0,00</strong></div>
-        <div class="kpi"><span>Saldo</span><strong id="mes-saldo">R$ 0,00</strong></div>
-      </div>
-      <div class="cartao">
-        <h2>Onde foi o dinheiro</h2>
-        <div id="mes-categorias"></div>
-      </div>
-      <div class="cartao" id="mes-futuras"></div>
-    </section>
+    <div id="conteudo"></div>
   </main>
 
-  <nav class="abas" role="tablist" hidden>
-    <button data-aba="registrar" role="tab">✏️<span>Registrar</span></button>
-    <button data-aba="ontem" role="tab">🗓️<span>Ontem</span></button>
-    <button data-aba="mes" role="tab">📊<span>Mês</span></button>
-  </nav>
+  <nav class="abas" aria-label="Seções" hidden></nav>
 
-  <div id="toast" class="toast" hidden role="status"></div>
+  <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
 
   <script src="js/vendor/supabase-2.118.0.js"></script>
   <script type="module" src="js/app.js"></script>

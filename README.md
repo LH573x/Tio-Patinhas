@@ -15,11 +15,19 @@ Escreva (ou dite pelo microfone do teclado) frases como:
 
 O app identifica item, valor, forma de pagamento e categoria. Se você corrigir uma categoria, ele aprende para a próxima vez.
 
-Abas:
+Telas:
 
-- **Registrar**: novo registro e lista de hoje.
-- **Ontem**: revisar e corrigir os registros do dia anterior.
-- **Mês**: gastos, entradas, saldo, gastos por categoria e parcelas futuras.
+- **Início**: resumo do mês, registro rápido, foto do cupom, extrato, revisar ontem e hoje.
+- **Lançamentos**: todos os registros do mês por dia, com busca, filtro por categoria e importação de extrato.
+- **Painel**: para onde foi o dinheiro, comparação com o mês anterior, gastos dos últimos 6 meses, dicas de economia, semana passada e parcelas futuras.
+- **Metas**: limite por categoria e metas de economia.
+
+Aparência: Claro, Escuro ou Automático (toque no seu avatar, no canto de cima).
+
+## Extratos e cupons
+
+- **CSV e OFX** (Nubank, Inter, Itaú e outros): lidos na hora, no próprio celular. Você revisa antes de importar e nada é importado duas vezes.
+- **Foto de cupom, PDF ou print**: vão para a caixa de entrada e a rotina diária do Claude lê de madrugada (veja `ROTINA.md`).
 
 ## Categorias
 
@@ -27,7 +35,7 @@ Refeições, Alimentação geral, Carro, Namorada, Viagens, Outros. Entradas: Sa
 
 ## Estado atual
 
-Os dados ficam no Supabase, com login. Cada pessoa só vê os próprios registros (veja `supabase/schema.sql`). Próxima etapa: fotos de cupom e extratos.
+Os dados ficam no Supabase, com login. Cada pessoa só vê os próprios registros (veja `supabase/schema.sql`). Ao atualizar o app, rode de novo o `schema.sql` no SQL Editor do Supabase (com “Primary Database” selecionado): ele é seguro para rodar várias vezes.
 
 ## Desenvolvimento
 
@@ -35,5 +43,5 @@ Sem build: HTML, CSS e JavaScript puros.
 
 ```bash
 python3 -m http.server 8000   # abre em http://localhost:8000
-npm test                      # testes do interpretador de frases
+npm test                      # testes (frases, extratos e análises)
 ```
