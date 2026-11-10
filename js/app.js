@@ -112,7 +112,7 @@ function abrirAjustes() {
     </div>
     <h3 class="sec-titulo">Aplicativo</h3>
     ${blocoInstalar()}
-    <p class="versao">Tio Patinhas · versão 4.8</p>`, (folha, fechar) => {
+    <p class="versao">Tio Patinhas · versão 4.9</p>`, (folha, fechar) => {
     $('#instalar-ajustes', folha)?.addEventListener('click', async () => {
       fechar();
       await instalar();
