@@ -101,7 +101,7 @@ function abrirAjustes() {
     </div>
     <h3 class="sec-titulo">Aplicativo</h3>
     ${blocoInstalar()}
-    <p class="versao">Tio Patinhas · versão 4.4</p>`, (folha, fechar) => {
+    <p class="versao">Tio Patinhas · versão 4.5</p>`, (folha, fechar) => {
     $('#instalar-ajustes', folha)?.addEventListener('click', async () => {
       fechar();
       await instalar();
@@ -335,5 +335,19 @@ store.usuario()
   .catch(() => mostrarApp(false));
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
+  const tinhaVersao = Boolean(navigator.serviceWorker.controller);
+  let versaoNova = false;
+  navigator.serviceWorker.register('./sw.js').then((reg) => {
+    // Ao voltar para o app, procura versão nova (o app instalado fica aberto por dias).
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+  }).catch(() => {});
+  // Versão nova assumiu: recarrega quando for seguro (app em segundo plano ou sem folha aberta).
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!tinhaVersao) return;
+    versaoNova = true;
+    if (!document.querySelector('.folha-fundo') && !($('#frase') && $('#frase').value)) location.reload();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (versaoNova && document.visibilityState === 'hidden') location.reload();
+  });
 }

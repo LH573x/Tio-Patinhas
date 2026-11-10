@@ -1,5 +1,5 @@
 // Service worker: deixa o app abrir rápido e funcionar offline.
-const VERSAO = 'tp-v4.4';
+const VERSAO = 'tp-v4.5';
 const ARQUIVOS = [
   './', './index.html', './css/style.css', './manifest.webmanifest',
   './js/app.js', './js/config.js', './js/store.js', './js/parser.js', './js/analise.js', './js/extrato.js',
@@ -10,7 +10,7 @@ const ARQUIVOS = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSAO).then((c) => c.addAll(ARQUIVOS)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(VERSAO).then((c) => c.addAll(ARQUIVOS.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -41,7 +41,9 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(caches.match(req).then((r) => r || fetch(req).then((resp) => guardar(req, resp))));
     return;
   }
-  const rede = fetch(req).then((resp) => guardar(req, resp));
+  // no-cache: confere com o servidor (resposta 304 rápida se nada mudou). Sem isso o navegador usa a
+  // cópia de até 10 min do GitHub Pages e uma versão nova demora a aparecer.
+  const rede = fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }).then((resp) => guardar(req, resp));
   e.waitUntil(rede.catch(() => {}));
   e.respondWith(new Promise((resolve) => {
     let respondeu = false;
