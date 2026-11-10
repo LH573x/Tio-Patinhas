@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { lerExtrato, decodificar, lerValor, lerData, limparDescricao, prepararImportacao, descritorCartao,
-  ajusteDoExtrato, aprenderEstabelecimentos, conferirSaldo } from '../js/extrato.js';
+  ajusteDoExtrato, aprenderEstabelecimentos, conferirSaldo, quemDoRegistro } from '../js/extrato.js';
 
 const arquivo = (nome) => decodificar(readFileSync(new URL(`./exemplos/${nome}`, import.meta.url)));
 
@@ -205,4 +205,25 @@ test('gasto sem pista do que foi vai para "A definir" (não "Outros")', () => {
   assert.equal(linhas[2].categoria, 'A definir');
   assert.equal(linhas[1].categoria, 'Carro');
   assert.equal(linhas[0].categoria, 'Outras entradas');
+});
+
+test('quem recebeu: nome que você deu vale para as próximas importações', () => {
+  const e = lerExtrato(arquivo('inter-historico.csv'));
+  const est = [{ chave: 'bruno costa', nome: 'Bruno Costa', apelido: 'Irmão', item: null, categoria: null, vezes: 1 }];
+  const linhas = prepararImportacao(e, [], [], est);
+  assert.equal(linhas[2].nome, 'Irmão');
+  assert.equal(linhas[2].item, 'Irmão');
+  assert.equal(linhas[2].local, 'Irmão');
+  assert.equal(linhas[2].automatico, false);
+  // aprender o "o que foi" não apaga o apelido
+  const depois = aprenderEstabelecimentos([{ chave: 'bruno costa', item: 'Lanche', categoria: 'Refeições' }], est);
+  assert.equal(depois[0].apelido, 'Irmão');
+});
+
+test('quemDoRegistro: chave gravada ou o nome no texto do banco', () => {
+  assert.deepEqual(quemDoRegistro({ origem: 'extrato', estabelecimento: 'posto shell 1234', local: 'Posto Shell',
+    textoOriginal: 'Compra no débito - Posto Shell 1234      Sao Paulo    Bra' }), { chave: 'posto shell 1234', original: 'Posto Shell' });
+  assert.deepEqual(quemDoRegistro({ origem: 'extrato', item: 'Lanche', textoOriginal: 'Pix enviado - Maria Souza' }),
+    { chave: 'maria souza', original: 'Maria Souza' });
+  assert.equal(quemDoRegistro({ origem: 'texto', item: 'Salgado', textoOriginal: 'salgado 8,50 pix' }), null);
 });
