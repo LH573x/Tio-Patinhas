@@ -11,15 +11,20 @@ export const CATEGORIAS_INFO = {
   Viagens: { icone: '✈️', cor: '#6250d6', corEscura: '#9085e9' },
   Besteira: { icone: '🍫', cor: '#c2255c', corEscura: '#e8598a' },
   'Rolê': { icone: '🎉', cor: '#c99700', corEscura: '#e0b000' },
-  'Álcool': { icone: '🍺', cor: '#8a2a2a', corEscura: '#d06a5a' },
   Entretenimento: { icone: '🎬', cor: '#0b8fa3', corEscura: '#2bb3c7' },
   Outros: { icone: '📦', cor: '#8b8a85', corEscura: '#8b8a85' },
   // Ainda não se sabe o que foi: cor de atenção, para chamar a revisão.
   'A definir': { icone: '❔', cor: '#b4570b', corEscura: '#f0a050' },
   'Salário': { icone: '💼', cor: '#008300', corEscura: '#2a9d2a' },
+  'Caixa 2 VR': { icone: '🎟️', cor: '#2f8f5b', corEscura: '#4fb37a' },
+  'Caixa 2': { icone: '🤫', cor: '#5b7f1e', corEscura: '#8fb84a' },
+  Poker: { icone: '🃏', cor: '#7a3fb0', corEscura: '#a678d6' },
   'Outras entradas': { icone: '💰', cor: '#eda100', corEscura: '#c98500' },
 };
 
+// Categorias que viraram outra (mesmo mapa de parser.js).
+const ANTIGAS = { 'Álcool': 'Rolê' };
+
 export function infoCategoria(nome) {
-  return CATEGORIAS_INFO[nome] || CATEGORIAS_INFO.Outros;
+  return CATEGORIAS_INFO[nome] || CATEGORIAS_INFO[ANTIGAS[nome]] || CATEGORIAS_INFO.Outros;
 }
