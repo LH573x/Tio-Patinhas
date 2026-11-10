@@ -1,59 +1,129 @@
-// O Tio Patinhas do app: um pato idoso e econômico, de cartola, óculos redondos e gravata-borboleta.
-// Desenho original (SVG), com três humores para os conselhos: normal, feliz e alerta.
+// O Tio Patinhas do app: um pato idoso e econômico, de cartola, óculos redondos dourados,
+// casaco verde e gravata-borboleta. Desenho original (SVG) no estilo dos desenhos animados
+// clássicos: contorno de tinta, cores chapadas com sombra e brilho.
+// Três humores para os conselhos: normal, feliz e alerta.
 
-const TINTA = '#26221d';
+const TINTA = '#1f1a17';
+let instancia = 0;
 
-const OLHOS = {
-  // Olhar sábio, de pálpebras meio baixas.
-  normal: `
-    <ellipse cx="84" cy="108" rx="7.5" ry="9" fill="#fff"/><ellipse cx="116" cy="108" rx="7.5" ry="9" fill="#fff"/>
-    <circle cx="85.5" cy="109.5" r="4.4" fill="${TINTA}"/><circle cx="114.5" cy="109.5" r="4.4" fill="${TINTA}"/>
-    <circle cx="87" cy="108" r="1.4" fill="#fff"/><circle cx="116" cy="108" r="1.4" fill="#fff"/>
-    <path d="M76.2 105.5C76.5 96 91.5 96 91.8 105.5c-4.6-2.4-11-2.4-15.6 0zM108.2 105.5c.3-9.5 15.3-9.5 15.6 0-4.6-2.4-11-2.4-15.6 0z" fill="#e9e6dd"/>
-    <path d="M76.4 105.3c4.6-2.4 10.8-2.4 15.2 0M108.4 105.3c4.6-2.4 10.8-2.4 15.2 0" stroke="${TINTA}" stroke-width="1.8" fill="none" stroke-linecap="round"/>
-    <path d="M73 92c5-3.6 11-4.4 17-2M127 92c-5-3.6-11-4.4-17-2" stroke="#8d8a83" stroke-width="3.6" fill="none" stroke-linecap="round"/>`,
-  // Sorrindo de olhos fechados.
-  feliz: `
-    <path d="M78 110c3-4.6 9-4.6 12 0M110 110c3-4.6 9-4.6 12 0" stroke="${TINTA}" stroke-width="2.8" fill="none" stroke-linecap="round"/>
-    <path d="M73 89c5-4.4 11-5.2 17-2.4M127 89c-5-4.4-11-5.2-17-2.4" stroke="#8d8a83" stroke-width="3.6" fill="none" stroke-linecap="round"/>`,
-  // Olhos arregalados e sobrancelhas preocupadas.
-  alerta: `
-    <ellipse cx="84" cy="108" rx="7.5" ry="9.5" fill="#fff"/><ellipse cx="116" cy="108" rx="7.5" ry="9.5" fill="#fff"/>
-    <circle cx="84" cy="108.5" r="3.4" fill="${TINTA}"/><circle cx="116" cy="108.5" r="3.4" fill="${TINTA}"/>
-    <path d="M73 94c6-1 12-3.4 16-7.4M127 94c-6-1-12-3.4-16-7.4" stroke="#8d8a83" stroke-width="3.6" fill="none" stroke-linecap="round"/>`,
+// Olhos grandes e ovais, encostados um no outro, como nos patos de desenho.
+const OLHO_E = 'M87.5 92c5.6 0 9.6 5.8 9.6 13s-4 13-9.6 13-9.6-5.8-9.6-13 4-13 9.6-13z';
+const OLHO_D = 'M112.5 92c5.6 0 9.6 5.8 9.6 13s-4 13-9.6 13-9.6-5.8-9.6-13 4-13 9.6-13z';
+
+function olhos(h, u) {
+  const fundo = `<path d="${OLHO_E}" fill="#fff"/><path d="${OLHO_D}" fill="#fff"/>`;
+  const contorno = `<g fill="none" stroke="${TINTA}" stroke-width="2"><path d="${OLHO_E}"/><path d="${OLHO_D}"/></g>`;
+  if (h === 'feliz') {
+    // Olhos fechados de tanto sorrir, bochechas para cima.
+    return `
+      <path d="M79.5 108c4.4-6 11.6-6 16 0M104.5 108c4.4-6 11.6-6 16 0" stroke="${TINTA}" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+      <path d="M80.4 115c3.2 1.6 6.6 1.6 9.8 0M109.8 115c3.2 1.6 6.6 1.6 9.8 0" stroke="#ec9a95" stroke-width="2.8" fill="none" stroke-linecap="round" opacity=".75"/>`;
+  }
+  if (h === 'alerta') {
+    // Arregalados, pupilas pequenas.
+    return `${fundo}
+      <ellipse cx="88.6" cy="105" rx="2.9" ry="4" fill="${TINTA}"/><ellipse cx="111.4" cy="105" rx="2.9" ry="4" fill="${TINTA}"/>
+      <circle cx="89.5" cy="103.6" r="1.1" fill="#fff"/><circle cx="112.3" cy="103.6" r="1.1" fill="#fff"/>
+      ${contorno}`;
+  }
+  // Normal: olhar sábio, de pálpebras meio baixas.
+  return `${fundo}
+    <ellipse cx="91.2" cy="108" rx="4.1" ry="5.8" fill="${TINTA}"/><ellipse cx="108.8" cy="108" rx="4.1" ry="5.8" fill="${TINTA}"/>
+    <ellipse cx="92.6" cy="105.8" rx="1.4" ry="1.9" fill="#fff"/><ellipse cx="110.2" cy="105.8" rx="1.4" ry="1.9" fill="#fff"/>
+    <path d="M77.9 101.6c.6-6 4.4-9.6 9.6-9.6s9 3.6 9.6 9.6c-5.4-2.4-13.8-2.4-19.2 0zM102.9 101.6c.6-6 4.4-9.6 9.6-9.6s9 3.6 9.6 9.6c-5.4-2.4-13.8-2.4-19.2 0z" fill="#ecebe6"/>
+    ${contorno}
+    <path d="M78.2 101.8c5.6-2.6 13-2.6 18.6 0M103.2 101.8c5.6-2.6 13-2.6 18.6 0" stroke="${TINTA}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`;
+}
+
+// Sobrancelhas de penas brancas, fartas.
+const SOBRANCELHAS = {
+  normal: 'M69 91c2-8.4 12.4-13 25-10 2.6.6 2.6 3.6.2 3.8-7.8-.4-13.6 1.2-17.6 4.2l1.6 1.8c-3.2.4-6.2.6-9.2.2zM131 91c-2 -8.4 -12.4 -13 -25 -10 -2.6 0.6 -2.6 3.6 -0.2 3.8 7.8 -0.4 13.6 1.2 17.6 4.2l-1.6 1.8c3.2 0.4 6.2 0.6 9.2 0.2z',
+  feliz: 'M69 87c2.4-8 13-12 25.4-8.4 2.6.8 2.4 3.8-.2 3.8-7.8-.8-13.6.4-17.8 3.2l1.4 1.8c-3.2.2-6 .2-8.8-.4zM131 87c-2.4 -8 -13 -12 -25.4 -8.4 -2.6 0.8 -2.4 3.8 0.2 3.8 7.8 -0.8 13.6 0.4 17.8 3.2l-1.4 1.8c3.2 0.2 6 0.2 8.8 -0.4z',
+  alerta: 'M69.4 94c3.6-7 12-13 22.6-16 2.6-.8 3.8 2 1.8 3.4-7.4 3.8-12.4 7.8-16.2 12.4l1.6 1.6c-3.4 0-6.6-.4-9.8-1.4zM130.6 94c-3.6 -7 -12 -13 -22.6 -16 -2.6 -0.8 -3.8 2 -1.8 3.4 7.4 3.8 12.4 7.8 16.2 12.4l-1.6 1.6c3.4 0 6.6 -0.4 9.8 -1.4z',
 };
 
-const BOCA = {
-  normal: 'M86 137c8 3.4 20 3.4 28 0',
-  feliz: 'M84 135.5c8 5.4 24 5.4 32 0',
-  alerta: 'M89 139c7-1.6 15-1.6 22 0',
+// Bico: o de cima, largo e arredondado; o de baixo muda com o humor.
+const BICO_BAIXO = {
+  normal: `<path d="M80 139c3 10 10.6 15 20 15s17-5 20-15z" fill="url(#U-bico2)"/>`,
+  feliz: `<path d="M77 138c2 15 11.4 23 23 23s21-8 23-23z" fill="#7a2a24"/>
+      <path d="M86 153.5c3.4-4.6 8.6-6.4 14-6.4s10.6 1.8 14 6.4c-3.6 4.6-8.4 7.4-14 7.4s-10.4-2.8-14-7.4z" fill="#e86f6a" stroke="none"/>
+      <path d="M77 138c2 15 11.4 23 23 23s21-8 23-23" fill="none"/>
+      <path d="M79.5 150c4.6 7.4 12 11 20.5 11s15.9-3.6 20.5-11c-4 9.4-11.4 14-20.5 14s-16.5-4.6-20.5-14z" fill="url(#U-bico2)"/>`,
+  alerta: `<path d="M84 139c2 12 8.4 18 16 18s14-6 16-18z" fill="url(#U-bico2)"/>
+      <path d="M92 146c2-1.4 5-2.2 8-2.2s6 .8 8 2.2c-1 4-4 6.4-8 6.4s-7-2.4-8-6.4z" fill="#7a2a24"/>`,
 };
 
 /** SVG do mascote. `humor`: normal | feliz | alerta. */
 export function mascote({ humor = 'normal', titulo = 'Tio Patinhas' } = {}) {
-  const h = OLHOS[humor] ? humor : 'normal';
-  return `<svg class="mascote" viewBox="14 18 172 183" role="img" aria-label="${titulo}" xmlns="http://www.w3.org/2000/svg">
-  <g stroke="${TINTA}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
-    <path d="M34 201c3-28 28-43 66-43s63 15 66 43z" fill="#0f6e4f"/>
-    <path d="M80 160l20 26 20-26c-6-1.6-13-2.4-20-2.4s-14 .8-20 2.4z" fill="#fff"/>
-    <path d="M100 171l-13-7v15zM100 171l13-7v15z" fill="#e8b84a"/>
-    <path d="M100 162c-29 0-50-20-50-48 0-29 22-50 50-50s50 21 50 50c0 28-21 48-50 48z" fill="#fbfaf6"/>
-    <path d="M82 142c3 9 10 13 18 13s15-4 18-13z" fill="#d9822b"/>
-    <path d="M71 133c0-8 13-13 29-13s29 5 29 13c0 7-12 12-29 12s-29-5-29-12z" fill="#f4a63f"/>
+  const h = SOBRANCELHAS[humor] ? humor : 'normal';
+  const u = `tp${++instancia}`;
+  return `<svg class="mascote" viewBox="14 6 172 195" role="img" aria-label="${titulo}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="${u}casaco" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1c8a64"/><stop offset="1" stop-color="#0d5c43"/></linearGradient>
+    <linearGradient id="${u}cartola" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3a3d47"/><stop offset=".55" stop-color="#25272f"/><stop offset="1" stop-color="#16171c"/></linearGradient>
+    <linearGradient id="${u}ouro" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe08a"/><stop offset=".5" stop-color="#f0bd45"/><stop offset="1" stop-color="#c98d1c"/></linearGradient>
+    <linearGradient id="${u}bico" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc35c"/><stop offset="1" stop-color="#f08f22"/></linearGradient>
+    <linearGradient id="${u}bico2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9701a"/><stop offset="1" stop-color="#f59a2f"/></linearGradient>
+    <linearGradient id="${u}pena" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1f0eb"/></linearGradient>
+    <radialGradient id="${u}lente" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#ffffff" stop-opacity=".0"/><stop offset="1" stop-color="#bfe3f2" stop-opacity=".28"/></radialGradient>
+    <clipPath id="${u}cabeca"><path d="M100 60c28 0 49 19 49 50 0 15-5 27-13 36l6 3.6-8 1.6 3.6 5.8-9.2-1.8c-8 5-17.4 7.4-28.4 7.4s-20.4-2.4-28.4-7.4l-9.2 1.8 3.6-5.8-8-1.6 6-3.6c-8-9-13-21-13-36 0-31 21-50 49-50z"/></clipPath>
+  </defs>
+
+  <!-- Casaco, colarinho e gravata -->
+  <g stroke="${TINTA}" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M28 201c2-24 17-39 42-44l30 6 30-6c25 5 40 20 42 44z" fill="url(#${u}casaco)"/>
+    <path d="M100 163l-30-7c-7 13-8 27-6 45h17zM100 163l30-7c7 13 8 27 6 45h-17z" fill="#0b4d38"/>
+    <path d="M100 163l-19 38h38z" fill="#f8f7f2"/>
+    <path d="M100 162l-20-8-5 15 15 2zM100 162l20-8 5 15-15 2z" fill="#fff"/>
+    <path d="M100 168l-15-9.6v16.4zM100 168l15-9.6v16.4z" fill="url(#${u}ouro)"/>
+    <rect x="95.4" y="163.6" width="9.2" height="9" rx="3" fill="#f0bd45"/>
+    <circle cx="100" cy="186" r="2.6" fill="url(#${u}ouro)" stroke-width="1.6"/>
+    <circle cx="100" cy="196" r="2.6" fill="url(#${u}ouro)" stroke-width="1.6"/>
   </g>
-  <path d="M128 176c6 6 14 8 22 6" stroke="#e8b84a" stroke-width="3" fill="none" stroke-linecap="round" stroke-dasharray="0.1 5.2"/>
-  <path d="${BOCA[h]}" stroke="${TINTA}" stroke-width="2.4" fill="none" stroke-linecap="round"/>
-  <ellipse cx="93" cy="128" rx="1.8" ry="1.3" fill="${TINTA}"/><ellipse cx="107" cy="128" rx="1.8" ry="1.3" fill="${TINTA}"/>
-  ${OLHOS[h]}
-  <g fill="none" stroke="#c4922a" stroke-width="3" stroke-linecap="round">
-    <circle cx="84" cy="109" r="12.5"/><circle cx="116" cy="109" r="12.5"/>
-    <path d="M96.5 106.5c2.3-1.6 4.7-1.6 7 0M71.5 106l-20-3.5M128.5 106l20-3.5"/>
+  <path d="M120 182c8 6 17 7 25 3" stroke="#f0bd45" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-dasharray=".1 4.6"/>
+  <circle cx="146.6" cy="184.4" r="4.4" fill="url(#${u}ouro)" stroke="${TINTA}" stroke-width="2"/>
+
+  <!-- Cabeça, com sombra do lado direito -->
+  <path d="M100 60c28 0 49 19 49 50 0 15-5 27-13 36l6 3.6-8 1.6 3.6 5.8-9.2-1.8c-8 5-17.4 7.4-28.4 7.4s-20.4-2.4-28.4-7.4l-9.2 1.8 3.6-5.8-8-1.6 6-3.6c-8-9-13-21-13-36 0-31 21-50 49-50z" fill="url(#${u}pena)"/>
+  <g clip-path="url(#${u}cabeca)">
+    <path d="M131 60c14 14 19 34 15 56-3 18-14 34-32 46l40 6 6-108z" fill="#e3e4e6"/>
+    <path d="M58 150c10 10 24 15 42 15s32-5 42-15v20H58z" fill="#e6e6e3"/>
   </g>
-  <g transform="rotate(-7 100 72)" stroke="${TINTA}" stroke-width="3" stroke-linejoin="round">
-    <path d="M68 70l3.5-46c.4-5 56.6-5 57 0l3.5 46z" fill="#2b2824"/>
-    <path d="M69.3 53h61.4l1.3 17h-64z" fill="#0f6e4f"/>
-    <ellipse cx="100" cy="73" rx="56" ry="8.5" fill="#2b2824"/>
-    <path d="M78 30v18" stroke="#46423c" stroke-width="4" stroke-linecap="round"/>
+  <path d="M100 60c28 0 49 19 49 50 0 15-5 27-13 36l6 3.6-8 1.6 3.6 5.8-9.2-1.8c-8 5-17.4 7.4-28.4 7.4s-20.4-2.4-28.4-7.4l-9.2 1.8 3.6-5.8-8-1.6 6-3.6c-8-9-13-21-13-36 0-31 21-50 49-50z" fill="none" stroke="${TINTA}" stroke-width="3" stroke-linejoin="round"/>
+
+  <!-- Olhos e sobrancelhas -->
+  ${olhos(h, u)}
+  <path d="${SOBRANCELHAS[h]}" fill="#e4e3de" stroke="${TINTA}" stroke-width="2.2" stroke-linejoin="round"/>
+
+  <!-- Bico -->
+  <g stroke="${TINTA}" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round">
+    ${BICO_BAIXO[h].replace(/U-/g, u)}
+    <path d="M100 119c-14 0-25 3-30.6 8.6-5.4 5.6-4 12.6 3 15.4 7 2.8 16.6 3.6 27.6 3.6s20.6-.8 27.6-3.6c7-2.8 8.4-9.8 3-15.4C125 122 114 119 100 119z" fill="url(#${u}bico)"/>
+  </g>
+  <path d="M80 126c5-2.4 12-3.6 20-3.6" stroke="#fff3d6" stroke-width="2.6" fill="none" stroke-linecap="round" opacity=".85"/>
+  <path d="M74 140.6c7 2.4 15.4 3.2 26 3.2s19-.8 26-3.2" stroke="#d27417" stroke-width="2.2" fill="none" stroke-linecap="round" opacity=".7"/>
+  <path d="M93 128.6c.8-1.4 2.4-1.4 3.2 0M103.8 128.6c.8-1.4 2.4-1.4 3.2 0" stroke="${TINTA}" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+
+  <!-- Óculos redondos dourados -->
+  <g fill="url(#${u}lente)" stroke="#b9861f" stroke-width="2.8" stroke-linecap="round">
+    <circle cx="86" cy="105" r="15"/><circle cx="114" cy="105" r="15"/>
+  </g>
+  <g fill="none" stroke-linecap="round">
+    <circle cx="86" cy="105" r="15" stroke="#f3cd6a" stroke-width="1" stroke-dasharray="14 80" transform="rotate(200 86 105)"/>
+    <circle cx="114" cy="105" r="15" stroke="#f3cd6a" stroke-width="1" stroke-dasharray="14 80" transform="rotate(200 114 105)"/>
+    <path d="M75.4 99.4c1-2.6 2.6-4.6 4.8-6M103.4 99.4c1-2.6 2.6-4.6 4.8-6" stroke="#fff" stroke-width="2" opacity=".9"/>
+    <path d="M71.2 102.6L53 97.6M128.8 102.6L147 97.6" stroke="#b9861f" stroke-width="2.6"/>
+  </g>
+
+  <!-- Cartola inclinada -->
+  <g transform="translate(0 -8) rotate(-9 100 66)" stroke="${TINTA}" stroke-width="2.8" stroke-linejoin="round">
+    <path d="M68.5 66c1.5-14 2.2-28 2.8-41 .2-4.6 57.2-4.6 57.4 0 .6 13 1.3 27 2.8 41z" fill="url(#${u}cartola)"/>
+    <path d="M70 51.6c19 2.6 41 2.6 60 0l.8 11.4c-20 3-41.6 3-61.6 0z" fill="url(#${u}ouro)"/>
+    <path d="M70 51.6c19 2.6 41 2.6 60 0" fill="none" stroke-width="1.6" opacity=".5"/>
+    <path d="M44 71c-3.4-5 12-10 56-10s59.4 5 56 10c-3 5-25 9-56 9s-53-4-56-9z" fill="url(#${u}cartola)"/>
+    <path d="M71.3 25c0 3.4 25.6 5.4 28.7 5.4s28.7-2 28.7-5.4" fill="none" stroke-width="2"/>
+    <path d="M79 33c-.4 6-.6 11-.6 15" stroke="#5b606e" stroke-width="4" stroke-linecap="round" fill="none"/>
+    <path d="M58 70c10 3 26 4.6 42 4.6" stroke="#4b4f5c" stroke-width="2" stroke-linecap="round" fill="none"/>
   </g>
 </svg>`;
 }

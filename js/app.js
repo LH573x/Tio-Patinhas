@@ -227,6 +227,26 @@ function abrirTrocarSenha(titulo = 'Trocar senha') {
 
 $('#btn-ajustes').addEventListener('click', abrirAjustes);
 
+// ---------------------------------------------------------------- Tela cheia no Android
+// O manifesto já pede tela cheia, mas o Chrome demora (ou nem chega) a aplicar isso num app
+// que já estava instalado. Então, no app instalado, o primeiro toque põe a tela cheia: as
+// teclas do Android somem e só voltam por um instante quando você desliza da borda de baixo.
+// O navegador só deixa fazer isso depois de um toque, por isso não é na abertura.
+const telaCheiaPossivel = () => /Android/i.test(navigator.userAgent)
+  && window.matchMedia('(display-mode: standalone)').matches
+  && document.fullscreenEnabled;
+
+// O pedido vai logo depois do toque (setTimeout) para não gastar a permissão de quem precisa dela
+// no mesmo toque, como o seletor de foto/arquivo.
+function pedirTelaCheia() {
+  if (!telaCheiaPossivel() || document.fullscreenElement) return;
+  setTimeout(() => {
+    if (document.fullscreenElement) return;
+    document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => { /* tenta no próximo toque */ });
+  }, 0);
+}
+document.addEventListener('click', pedirTelaCheia, true);
+
 // ---------------------------------------------------------------- Login
 function mostrarApp(logado) {
   $('#tela-login').hidden = logado;

@@ -23,9 +23,11 @@ Telas:
 - **Painel**: faturas de cada cartão (valor, vencimento e limite usado), para onde foi o dinheiro, comparação com o mês anterior, gastos dos últimos 6 meses, dicas de economia, semana passada e parcelas futuras.
 - **Metas**: contas fixas (com botão “Paguei”), cartões de crédito, limite por categoria e metas de economia.
 
-**Tio Patinhas, o assessor**: o mascote do app (um pato idoso e econômico, de cartola e óculos redondos) aparece de vez em quando no Início com um conselho: um alerta de limite, uma dica de economia com os seus números, um elogio quando você gasta menos que no mês passado ou, em alguns dias, um ditado de quem sabe guardar dinheiro. Depois do “Valeu, tio” ele só volta no dia seguinte (ou antes, se surgir um alerta novo) e não repete o mesmo conselho por alguns dias. O desenho é original, feito em SVG (`js/mascote.js`); os ícones saem dele com `node scripts/icones.mjs`.
+**Tio Patinhas, o assessor**: o mascote do app (um pato idoso e econômico, de cartola e óculos redondos) aparece de vez em quando no Início com um conselho: um alerta de limite, uma dica de economia com os seus números, um elogio quando você gasta menos que no mês passado ou, em alguns dias, um ditado de quem sabe guardar dinheiro. Depois do “Valeu, tio” ele só volta no dia seguinte (ou antes, se surgir um alerta novo) e não repete o mesmo conselho por alguns dias. O desenho é original, no estilo dos desenhos animados clássicos (contorno de tinta, sombra e brilho), feito em SVG (`js/mascote.js`); os ícones saem dele com `node scripts/icones.mjs`.
 
 A previsão do mês soma o ritmo dos gastos do dia a dia com as contas fixas e parcelas pelo valor certo.
+
+No Android, o app instalado abre em tela cheia: as teclas de baixo ficam escondidas e aparecem quando você desliza da borda de baixo.
 
 Aparência: Claro, Escuro ou Automático (toque no seu avatar, no canto de cima).
 
