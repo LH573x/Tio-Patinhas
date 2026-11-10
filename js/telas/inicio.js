@@ -9,6 +9,7 @@ import { enviarCupom, cardCaixa, ligarCaixa } from './anexos.js';
 import { pagarConta } from './contas.js';
 import { opcoesCartao, cartaoPadrao } from './cartoes.js';
 import { avisoLimite } from './alertas.js';
+import { cardADefinir, ligarADefinir } from './revisar.js';
 
 let previa = null;
 let salvando = false;
@@ -228,7 +229,7 @@ async function registrar(app) {
 }
 
 export function telaInicio(raiz, app) {
-  raiz.innerHTML = [avisoBanco(store.bancoDesatualizado), cardMes(), cardPagar(), cardCaixa(app), cardHoje(app), cardRegistrar()].join('');
+  raiz.innerHTML = [avisoBanco(store.bancoDesatualizado), cardMes(), cardPagar(), cardADefinir(), cardCaixa(app), cardHoje(app), cardRegistrar()].join('');
   $('#frase', raiz).addEventListener('input', renderPrevia);
   $('#form-registro', raiz).addEventListener('submit', (e) => {
     e.preventDefault();
@@ -238,6 +239,7 @@ export function telaInicio(raiz, app) {
   if (textoDigitado) renderPrevia();
   ligarRegistros(raiz, app);
   ligarCaixa(raiz, app);
+  ligarADefinir(raiz, app);
   raiz.querySelectorAll('[data-conta]').forEach((b) => b.addEventListener('click', () => {
     const conta = store.contas().find((c) => c.id === b.dataset.conta);
     if (conta) pagarConta(conta, app);

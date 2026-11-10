@@ -10,6 +10,8 @@ export const CATEGORIAS_INFO = {
   Namorada: { icone: '❤️', cor: '#e87ba4', corEscura: '#d55181' },
   Viagens: { icone: '✈️', cor: '#6250d6', corEscura: '#9085e9' },
   Outros: { icone: '📦', cor: '#8b8a85', corEscura: '#8b8a85' },
+  // Ainda não se sabe o que foi: cor de atenção, para chamar a revisão.
+  'A definir': { icone: '❔', cor: '#b4570b', corEscura: '#f0a050' },
   'Salário': { icone: '💼', cor: '#008300', corEscura: '#2a9d2a' },
   'Outras entradas': { icone: '💰', cor: '#eda100', corEscura: '#c98500' },
 };

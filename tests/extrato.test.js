@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { lerExtrato, decodificar, lerValor, lerData, limparDescricao, prepararImportacao, descritorCartao } from '../js/extrato.js';
+import { lerExtrato, decodificar, lerValor, lerData, limparDescricao, prepararImportacao, descritorCartao,
+  ajusteDoExtrato, aprenderEstabelecimentos, conferirSaldo } from '../js/extrato.js';
 
 const arquivo = (nome) => decodificar(readFileSync(new URL(`./exemplos/${nome}`, import.meta.url)));
 
@@ -87,7 +88,8 @@ test('não duplica: já importado e já registrado à mão', () => {
     { id: '2', tipo: 'gasto', item: 'Posto', valor: 200, data: '2026-11-04', ref_externa: 'csv:e5f6' }, // importado
   ];
   const linhas = prepararImportacao(e, existentes);
-  assert.equal(linhas[1].situacao, 'duplicado');
+  // mesmo valor, data próxima, mas nome diferente: pergunta
+  assert.equal(linhas[1].situacao, 'pergunta');
   assert.match(linhas[1].aviso, /Salgado/);
   assert.equal(linhas[1].selecionado, false);
   assert.equal(linhas[2].situacao, 'importado');
@@ -150,4 +152,57 @@ test('descritorCartao separa nome e cidade', () => {
   assert.deepEqual(descritorCartao('Garagem Cingo         Sao Paulo    Bra'), { nome: 'Garagem Cingo', cidade: 'Sao Paulo' });
   assert.deepEqual(descritorCartao('Newmania              Sao Sebastiaobra'), { nome: 'Newmania', cidade: 'Sao Sebastiao' });
   assert.equal(descritorCartao('Padaria Pão Quente'), null);
+});
+
+test('pergunta quando o valor é quase igual; o extrato vale mais ao ajustar', () => {
+  const e = lerExtrato(arquivo('inter-historico.csv'));
+  const digitado = { id: 'd', tipo: 'gasto', item: 'Gasolina', local: 'Posto Shell', valor: 199, data: '2026-11-06', metodo: 'Crédito', categoria: 'Carro' };
+  const [, posto] = prepararImportacao(e, [digitado]);
+  assert.equal(posto.situacao, 'pergunta');
+  const m = ajusteDoExtrato(digitado, posto);
+  assert.equal(m.valor, 200);
+  assert.equal(m.metodo, 'Débito');
+  assert.equal(m.item, 'Gasolina');
+  assert.equal(m.categoria, 'Carro');
+  assert.equal(m.refExterna, posto.ref);
+  // conta fixa mantém a referência do mês
+  assert.equal(ajusteDoExtrato({ ...digitado, refExterna: 'conta:1:2026-11' }, posto).refExterna, 'conta:1:2026-11');
+});
+
+test('aprende o que foi em cada estabelecimento e preenche sozinho depois de 3 vezes', () => {
+  const e = lerExtrato(arquivo('inter-historico.csv'));
+  let est = [];
+  const resp = { chave: 'posto shell 1234', item: 'Gasolina', categoria: 'Carro' };
+  est = aprenderEstabelecimentos([resp], est);
+  assert.equal(est[0].vezes, 1);
+  let linhas = prepararImportacao(e, [], [], est);
+  assert.equal(linhas[1].automatico, false);
+  assert.equal(linhas[1].sugestao, 'Gasolina');
+  est = aprenderEstabelecimentos([resp], est);
+  est = aprenderEstabelecimentos([{ ...resp, item: 'gasolina' }], est);
+  assert.equal(est[0].vezes, 3);
+  linhas = prepararImportacao(e, [], [], est);
+  assert.equal(linhas[1].automatico, true);
+  assert.equal(linhas[1].item, 'gasolina');
+  assert.equal(linhas[1].categoria, 'Carro');
+  assert.equal(linhas[1].local, 'Posto Shell');
+  // resposta diferente recomeça a contagem
+  est = aprenderEstabelecimentos([{ ...resp, item: 'Lava-rápido' }], est);
+  assert.equal(est[0].vezes, 1);
+});
+
+test('confere o saldo e acha linha faltando', () => {
+  const e = lerExtrato(arquivo('inter-historico.csv'));
+  assert.deepEqual(conferirSaldo(e.transacoes), []);
+  const semUma = e.transacoes.filter((_, i) => i !== 2);
+  assert.deepEqual(conferirSaldo(semUma), [{ de: '2026-11-05', ate: '2026-11-06' }]);
+  assert.deepEqual(conferirSaldo(lerExtrato(arquivo('nubank-conta.csv')).transacoes), []);
+});
+
+test('gasto sem pista do que foi vai para "A definir" (não "Outros")', () => {
+  const linhas = prepararImportacao(lerExtrato(arquivo('inter-historico.csv')), []);
+  assert.equal(linhas[2].item, 'Bruno Costa');
+  assert.equal(linhas[2].categoria, 'A definir');
+  assert.equal(linhas[1].categoria, 'Carro');
+  assert.equal(linhas[0].categoria, 'Outras entradas');
 });

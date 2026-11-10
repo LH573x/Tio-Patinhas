@@ -1,7 +1,7 @@
 // Leitura de extratos bancários (OFX e CSV) direto no app, sem IA.
 // Funciona com os formatos mais comuns dos bancos brasileiros
 // (Nubank, Inter, Itaú, Bradesco, BB, Caixa, C6, Santander...).
-import { semAcento, sugerirCategoria } from './parser.js';
+import { semAcento, sugerirCategoria, A_DEFINIR } from './parser.js';
 
 const r2 = (v) => Math.round(v * 100) / 100;
 
@@ -218,6 +218,8 @@ function lerCSV(texto) {
       tipo: gasto ? 'gasto' : 'entrada',
       ref,
       refsAntigas,
+      saldo: b.saldo,
+      valorAssinado: b.valor,
     };
   });
   return { formato: 'CSV', cartao: positivoEhGasto, banco: '', transacoes };
@@ -345,32 +347,56 @@ function parecidos(a, b) {
   return comum / Math.min(pa.size, pb.size);
 }
 
+/** Gasto do extrato sem pista do que foi: "A definir" (não "Outros"), para revisar depois. */
+function categoriaInicial(texto, tipo, regras) {
+  const c = sugerirCategoria(texto, tipo, regras);
+  return tipo === 'gasto' && c === 'Outros' ? A_DEFINIR : c;
+}
+
+/** Quantas vezes seguidas a mesma resposta precisa aparecer para o app preencher sozinho. */
+export const VEZES_PARA_AUTOMATICO = 3;
+
+const normalizar = (t) => semAcento(String(t || '')).replace(/\s+/g, ' ').trim();
+
 /**
  * Prepara a lista para o usuário revisar antes de importar.
- * Marca o que já foi importado, o que parece já ter sido registrado (à mão,
- * por foto de cupom ou por outro formato de extrato) e o que normalmente não
- * é gasto (fatura, investimento...).
+ * - já importado (mesma referência): fica de fora;
+ * - já registrado (à mão, por foto de cupom ou outro extrato) com mesmo valor e
+ *   nome parecido: fica de fora e o registro existente é ajustado com os dados
+ *   do extrato (o extrato vale mais que o digitado);
+ * - parecido mas sem certeza (nome diferente ou valor quase igual): pergunta;
+ * - fatura, investimento...: fica desmarcado.
+ * `estabelecimentos` = respostas aprendidas: [{ chave, item, categoria, vezes }]
  */
-export function prepararImportacao(extrato, existentes, regras = []) {
+export function prepararImportacao(extrato, existentes, regras = [], estabelecimentos = []) {
   const refs = new Set(existentes.map((r) => r.ref_externa || r.refExterna).filter(Boolean));
+  const aprendidos = new Map(estabelecimentos.map((e) => [e.chave, e]));
   const usados = new Set();
   return extrato.transacoes.map((t) => {
-    const nome = t.nome || t.descricao;
-    const item = limparDescricao(nome);
+    const nomeBruto = t.nome || t.descricao;
+    const nome = limparDescricao(nomeBruto);
     const metodo = t.tipo === 'gasto' ? metodoDaDescricao(t.descricao, extrato.cartao) : null;
-    const cartao = descritorCartao(nome);
+    const cartao = descritorCartao(nomeBruto);
+    const chave = chaveEstabelecimento(nomeBruto);
+    const est = aprendidos.get(chave) || null;
+    const automatico = Boolean(est && est.vezes >= VEZES_PARA_AUTOMATICO && est.item);
     const linha = {
       selecionado: true,
       tipo: t.tipo,
-      item,
+      nome, // estabelecimento ou pessoa, como veio do banco
+      item: automatico ? est.item : nome,
+      resposta: automatico ? est.item : '', // "O que foi?"
+      automatico,
+      sugestao: est && !automatico && est.item ? est.item : null,
+      sugestaoCategoria: est && !automatico ? est.categoria : null,
       descricao: t.descricao,
       data: t.data,
       valor: t.valor,
-      categoria: sugerirCategoria(`${item} ${t.descricao}`, t.tipo, regras),
+      categoria: automatico && est.categoria ? est.categoria : categoriaInicial(`${nome} ${t.descricao}`, t.tipo, regras),
       metodo,
       // Compra no cartão: o estabelecimento vira o local do registro
-      local: metodo === 'Débito' || metodo === 'Crédito' || cartao ? item : null,
-      estabelecimento: chaveEstabelecimento(nome),
+      local: metodo === 'Débito' || metodo === 'Crédito' || cartao ? nome : null,
+      estabelecimento: chave,
       ref: t.ref,
       situacao: 'novo',
       aviso: null,
@@ -378,27 +404,92 @@ export function prepararImportacao(extrato, existentes, regras = []) {
     if ((t.ref && refs.has(t.ref)) || (t.refsAntigas || []).some((r) => refs.has(r))) {
       return { ...linha, selecionado: false, situacao: 'importado', aviso: 'Já importado antes' };
     }
-    // Mesmo valor e data próxima. Um registro que veio de outra linha do mesmo
-    // tipo de extrato não conta: se fosse a mesma transação, a referência seria igual.
-    const familia = familiaRef(t.ref);
-    const candidatos = existentes.filter((r) => {
-      if (usados.has(r.id) || r.tipo !== t.tipo || Math.abs(r.valor - t.valor) >= 0.01 || diasEntre(r.data, t.data) > 3) return false;
-      const fr = familiaRef(r.ref_externa || r.refExterna);
-      return !(fr && FAMILIAS_EXTRATO.has(fr) && fr === familia);
-    });
-    if (candidatos.length) {
-      const nota = (r) => diasEntre(r.data, t.data) - parecidos(`${r.item} ${r.local || ''}`, `${item} ${t.descricao}`);
-      const igual = candidatos.sort((x, y) => nota(x) - nota(y))[0];
-      usados.add(igual.id);
-      const [, m, d] = igual.data.split('-');
-      return { ...linha, selecionado: false, situacao: 'duplicado', duplicadoDe: igual.id,
-        aviso: `Parece ser "${igual.item}" (${d}/${m}), que você já registrou` };
-    }
     if (extrato.cartao && t.tipo === 'entrada' && /pagamento/.test(semAcento(t.descricao))) {
       return { ...linha, selecionado: false, situacao: 'ignorar', aviso: 'Pagamento da fatura: as compras do cartão já contam' };
     }
     const motivo = motivoIgnorar(t.descricao);
     if (motivo) return { ...linha, selecionado: false, situacao: 'ignorar', aviso: motivo };
-    return linha;
+
+    // Registros parecidos: valor igual ou quase (até 2%) e data a até 3 dias.
+    // Um registro que veio de outra linha do mesmo tipo de extrato não conta:
+    // se fosse a mesma transação, a referência seria igual.
+    const familia = familiaRef(t.ref);
+    const textoLinha = `${nome} ${t.descricao} ${est ? est.item : ''}`;
+    const candidatos = existentes
+      .filter((r) => {
+        if (usados.has(r.id) || r.tipo !== t.tipo || diasEntre(r.data, t.data) > 3) return false;
+        if (Math.abs(r.valor - t.valor) > Math.max(0.01, t.valor * 0.02)) return false;
+        const fr = familiaRef(r.ref_externa || r.refExterna);
+        return !(fr && FAMILIAS_EXTRATO.has(fr) && fr === familia);
+      })
+      .map((r) => {
+        const valorIgual = Math.abs(r.valor - t.valor) < 0.01;
+        const nomeParecido = parecidos(`${r.item} ${r.local || ''}`, textoLinha) >= 0.5;
+        return { r, certo: valorIgual && nomeParecido, nota: diasEntre(r.data, t.data) - (nomeParecido ? 2 : 0) - (valorIgual ? 1 : 0) };
+      })
+      .sort((x, y) => x.nota - y.nota);
+    if (!candidatos.length) return linha;
+    const { r: igual, certo } = candidatos[0];
+    usados.add(igual.id);
+    const [, m, d] = igual.data.split('-');
+    const valorTxt = igual.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    if (certo) {
+      return { ...linha, selecionado: false, situacao: 'duplicado', duplicadoDe: igual.id,
+        aviso: `Já registrado como "${igual.item}" (${d}/${m}). Ajusto com os dados do extrato.` };
+    }
+    return { ...linha, selecionado: false, situacao: 'pergunta', duplicadoDe: igual.id, resposta_duplicado: null,
+      aviso: `É o mesmo que "${igual.item}" ${valorTxt} (${d}/${m})?` };
   });
+}
+
+/**
+ * Ajuste do registro já existente com os dados do extrato (o extrato vale mais):
+ * valor, data e forma de pagamento do banco; o nome e a categoria que você deu continuam.
+ */
+export function ajusteDoExtrato(existente, linha) {
+  const m = { ...existente, valor: linha.valor, data: linha.data };
+  if (linha.metodo) m.metodo = linha.metodo;
+  if (!m.local && linha.local) m.local = linha.local;
+  if (m.metodo !== 'Crédito') m.cartaoId = null;
+  // Conta fixa guarda o mês na referência ("conta:..."): essa não muda.
+  if (!String(existente.refExterna || '').startsWith('conta:')) m.refExterna = linha.ref;
+  return m;
+}
+
+/**
+ * Novas respostas aprendidas depois da importação.
+ * A contagem sobe quando a resposta se repete e volta a 1 quando muda.
+ * `confirmadas` = [{ chave, item, categoria }]
+ */
+export function aprenderEstabelecimentos(confirmadas, estabelecimentos = []) {
+  const atual = new Map(estabelecimentos.map((e) => [e.chave, { ...e }]));
+  const mudou = new Map();
+  for (const c of confirmadas) {
+    if (!c.chave || !c.item) continue;
+    const antes = mudou.get(c.chave) || atual.get(c.chave);
+    const igual = antes && normalizar(antes.item) === normalizar(c.item) && antes.categoria === c.categoria;
+    mudou.set(c.chave, { chave: c.chave, nome: c.nome || (antes && antes.nome) || null, item: c.item, categoria: c.categoria,
+      vezes: igual ? antes.vezes + 1 : 1 });
+  }
+  return [...mudou.values()];
+}
+
+/**
+ * Confere a coluna Saldo: cada saldo tem que ser o anterior mais o valor da linha.
+ * Retorna os pontos onde a conta não fecha (provável linha faltando):
+ * [{ de, ate }] com as datas em volta do buraco. Lista vazia = completo (ou sem saldo).
+ */
+export function conferirSaldo(transacoes) {
+  const ts = transacoes.filter((t) => t.saldo !== null && t.saldo !== undefined && t.valorAssinado !== undefined);
+  if (ts.length < 2 || ts.length !== transacoes.length) return [];
+  const fecha = (a, b) => Math.abs(a - b) < 0.015;
+  // Arquivo do mais novo para o mais antigo, ou o contrário.
+  const furosDesc = [];
+  const furosAsc = [];
+  for (let i = 0; i + 1 < ts.length; i++) {
+    const [x, y] = [ts[i], ts[i + 1]];
+    if (!fecha(x.saldo, y.saldo + x.valorAssinado)) furosDesc.push({ de: y.data, ate: x.data });
+    if (!fecha(y.saldo, x.saldo + y.valorAssinado)) furosAsc.push({ de: x.data, ate: y.data });
+  }
+  return furosDesc.length <= furosAsc.length ? furosDesc : furosAsc;
 }

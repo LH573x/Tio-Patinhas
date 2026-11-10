@@ -43,11 +43,12 @@ function paraBanco(r) {
     local: r.local || null,
     hora: r.hora || null,
     cartao_id: r.cartaoId || null,
+    estabelecimento: r.estabelecimento || null,
   };
 }
 
 // Banco ainda sem colunas novas (local, hora, cartao_id): grava sem elas até o schema.sql ser rodado de novo.
-const COLUNAS_NOVAS = ['local', 'hora', 'cartao_id'];
+const COLUNAS_NOVAS = ['local', 'hora', 'cartao_id', 'estabelecimento'];
 const colunasFaltando = new Set();
 function paraBancoCompat(r) {
   const b = paraBanco(r);
@@ -85,6 +86,7 @@ function doBanco(row) {
     local: row.local || null,
     hora: row.hora ? String(row.hora).slice(0, 5) : null,
     cartaoId: row.cartao_id || null,
+    estabelecimento: row.estabelecimento || null,
     criadoEm: row.criado_em,
   };
 }
@@ -128,7 +130,7 @@ function falhar(error) {
   throw new Error(erroLegivel(error));
 }
 
-const VAZIO = () => ({ registros: [], regras: [], orcamentos: [], metas: [], caixa: [], contas: [], cartoes: [] });
+const VAZIO = () => ({ registros: [], regras: [], orcamentos: [], metas: [], caixa: [], contas: [], cartoes: [], estabelecimentos: [] });
 let cache = { ...VAZIO(), ...lerLocal(CHAVE_CACHE, {}) };
 let usuarioAtual = null;
 
@@ -193,6 +195,7 @@ export const store = {
       cliente.from('caixa_entrada').select('*').order('criado_em', { ascending: false }).limit(30),
       cliente.from('contas_fixas').select('*').order('dia_vencimento'),
       cliente.from('cartoes').select('*').order('criado_em'),
+      cliente.from('estabelecimentos').select('chave, nome, item, categoria, vezes'),
     ]);
     const registros = [];
     const passo = 1000;
@@ -204,7 +207,7 @@ export const store = {
       registros.push(...data.map(doBanco));
       if (data.length < passo) break;
     }
-    const [regras, orcamentos, metas, caixa, contas, cartoes] = await outras;
+    const [regras, orcamentos, metas, caixa, contas, cartoes, estabelecimentos] = await outras;
     if (regras.error) falhar(regras.error);
     cache = {
       registros,
@@ -215,8 +218,10 @@ export const store = {
       caixa: caixa.error ? [] : caixa.data,
       contas: contas.error ? [] : contas.data.map(numerosConta),
       cartoes: cartoes.error ? [] : cartoes.data.map(numerosCartao),
+      estabelecimentos: estabelecimentos.error ? [] : estabelecimentos.data.map((e) => ({ ...e, vezes: Number(e.vezes) })),
     };
-    this.bancoDesatualizado = Boolean(orcamentos.error || metas.error || caixa.error || contas.error || cartoes.error || colunasFaltando.size);
+    this.semEstabelecimentos = Boolean(estabelecimentos.error);
+    this.bancoDesatualizado = Boolean(orcamentos.error || metas.error || caixa.error || contas.error || cartoes.error || estabelecimentos.error || colunasFaltando.size);
     salvarCache();
   },
   bancoDesatualizado: false,
@@ -251,6 +256,21 @@ export const store = {
       if (tentativa > 0 || !/duplicate key|23505/i.test(`${error.code} ${error.message}`)) falhar(error);
       await this.carregar();
     }
+  },
+  // ---------- O que foi em cada estabelecimento (aprendido na importação de extrato) ----------
+  estabelecimentos() {
+    return cache.estabelecimentos || [];
+  },
+  semEstabelecimentos: false,
+  async salvarEstabelecimentos(lista) {
+    if (!lista.length || this.semEstabelecimentos) return;
+    const { error } = await cliente.from('estabelecimentos')
+      .upsert(lista.map((e) => ({ chave: e.chave, nome: e.nome || null, item: e.item, categoria: e.categoria, vezes: e.vezes,
+        atualizado_em: new Date().toISOString() })), { onConflict: 'user_id,chave' });
+    if (error) falhar(error);
+    const novas = new Map(lista.map((e) => [e.chave, e]));
+    cache.estabelecimentos = [...this.estabelecimentos().filter((e) => !novas.has(e.chave)), ...novas.values()];
+    salvarCache();
   },
   async atualizar(id, m) {
     const { data, error } = await gravarCompat(() => cliente.from('registros').update(paraBancoCompat(m)).eq('id', id).select().single());

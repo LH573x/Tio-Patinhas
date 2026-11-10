@@ -1,5 +1,5 @@
 // Contas fixas, cartões, limites por categoria e metas de economia.
-import { CATEGORIAS_GASTO } from '../parser.js';
+import { CATEGORIAS_GASTO, A_DEFINIR } from '../parser.js';
 import { statusLimites, resumoMes, planoMeta, mesDe, iso, somarMesesMes, doMes } from '../analise.js';
 import { store } from '../store.js';
 import { $, $$, esc, reais, pct, abrirFolha, confirmar, aviso, lerNumero, numeroParaCampo, ICONES, avisoBanco } from '../util.js';
@@ -130,7 +130,7 @@ export function telaMetas(raiz, app) {
   const gastoCat = new Map(r.categorias.map((c) => [c.categoria, c.valor]));
   const metas = store.metas();
   const comLimite = CATEGORIAS_GASTO.filter((c) => status.has(c));
-  const semLimite = CATEGORIAS_GASTO.filter((c) => !status.has(c));
+  const semLimite = CATEGORIAS_GASTO.filter((c) => !status.has(c) && c !== A_DEFINIR);
 
   raiz.innerHTML = `
     ${avisoBanco(store.bancoDesatualizado)}

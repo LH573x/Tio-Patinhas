@@ -8,7 +8,11 @@ export const CATEGORIAS_GASTO = [
   'Namorada',
   'Viagens',
   'Outros',
+  'A definir', // gasto do extrato que você ainda não disse o que foi
 ];
+
+/** Categoria dos gastos que ainda precisam ser revisados. */
+export const A_DEFINIR = 'A definir';
 
 export const CATEGORIAS_ENTRADA = ['Salário', 'Outras entradas'];
 

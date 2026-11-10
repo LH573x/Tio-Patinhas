@@ -3,6 +3,7 @@ import { CATEGORIAS_GASTO, CATEGORIAS_ENTRADA, METODOS } from '../parser.js';
 import { store } from '../store.js';
 import { $, $$, esc, reais, abrirFolha, confirmar, aviso, lerNumero, numeroParaCampo, ICONES } from '../util.js';
 import { opcoesCartao } from './cartoes.js';
+import { aprenderEstabelecimentos, chaveEstabelecimento } from '../extrato.js';
 
 export function bolinha(categoria, app) {
   return `<span class="bolinha" style="--cor:${app.cor(categoria)}" aria-hidden="true"></span>`;
@@ -80,6 +81,12 @@ export function editarRegistro(r, app) {
       try {
         if (m.categoria !== r.categoria) await store.aprenderRegra(m.item, m.categoria);
         await store.atualizar(r.id, m);
+        if (r.categoria === 'A definir' && m.categoria !== 'A definir' && r.origem === 'extrato') {
+          const chave = r.estabelecimento || chaveEstabelecimento(r.local || r.item);
+          await store.salvarEstabelecimentos(aprenderEstabelecimentos(
+            [{ chave, nome: r.local || r.item, item: m.item, categoria: m.categoria }], store.estabelecimentos(),
+          )).catch(() => {});
+        }
         fechar();
         aviso(m.categoria !== r.categoria ? `Corrigido. Da próxima vez, “${m.item}” vai para ${m.categoria}.` : 'Corrigido ✓');
         app.render();
