@@ -14,8 +14,9 @@ const arquivos = {
   'icons/mascote.svg': xml(caixa, corpo),
   'icons/icon.svg': xml('0 0 512 512', `<rect width="512" height="512" rx="112" fill="${OURO}"/>\n${dentro(36, 44, 440, 468)}`),
   'icons/logo.svg': xml('0 0 64 64', `<clipPath id="c"><circle cx="32" cy="32" r="32"/></clipPath><g clip-path="url(#c)"><rect width="64" height="64" fill="${OURO}"/>${dentro(6, 7, 52, 57)}</g>`),
-  // Maskable: o sistema corta as bordas, então o mascote fica dentro dos 80% do meio.
-  'icons/icon-maskable.svg': xml('0 0 512 512', `<rect width="512" height="512" fill="${OURO}"/>\n${dentro(86, 96, 340, 362)}`),
+  // Maskable: o sistema corta as bordas, então cabeça e cartola ficam dentro dos 80% do meio
+  // e o casaco desce até a borda de baixo.
+  'icons/icon-maskable.svg': xml('0 0 512 512', `<rect width="512" height="512" fill="${OURO}"/>\n${dentro(66, 118, 380, 404)}`),
 };
 for (const [nome, svg] of Object.entries(arquivos)) fs.writeFileSync(nome, svg);
 

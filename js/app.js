@@ -195,6 +195,22 @@ function cartaoInstalar() {
     </section>`;
 }
 
+// ---------------------------------------------------------------- Tela cheia
+// O manifest pede tela cheia, mas o Android só aplica isso quando o Chrome atualiza o app instalado
+// (pode levar dias) e às vezes devolve as teclas depois que o teclado fecha. Por isso, no app instalado,
+// cada toque confere e, se as teclas voltaram, pede tela cheia de novo: elas somem e só aparecem
+// quando você desliza o dedo da borda de baixo para cima.
+// O pedido vai depois do toque (setTimeout) para não roubar a permissão de quem precisa dele,
+// como o seletor de foto/arquivo.
+function pedirTelaCheia() {
+  if (document.fullscreenElement || !document.fullscreenEnabled || !instalado()) return;
+  setTimeout(() => {
+    if (document.fullscreenElement) return;
+    document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => { /* sem permissão: tenta no próximo toque */ });
+  }, 0);
+}
+document.addEventListener('click', pedirTelaCheia, true);
+
 document.addEventListener('click', (e) => {
   if (e.target.closest('[data-instalar]')) instalar();
   if (e.target.closest('[data-instalar-depois]')) {
