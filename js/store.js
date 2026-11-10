@@ -141,9 +141,93 @@ const VAZIO = () => ({ registros: [], regras: [], orcamentos: [], metas: [], cai
 let cache = { ...VAZIO(), ...lerLocal(CHAVE_CACHE, {}) };
 let usuarioAtual = null;
 
-function salvarCache() {
+// Gravar a cópia local (centenas de KB) trava a tela por dezenas de ms no celular:
+// junta várias mudanças e grava quando o aparelho estiver livre (ou ao sair do app).
+let cacheSujo = false;
+function gravarCacheJa() {
+  if (!cacheSujo) return;
+  cacheSujo = false;
   gravarLocal(CHAVE_CACHE, cache);
 }
+function salvarCache() {
+  if (cacheSujo) return;
+  cacheSujo = true;
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(gravarCacheJa, { timeout: 1500 });
+  else setTimeout(gravarCacheJa, 300);
+}
+if (typeof addEventListener === 'function') {
+  addEventListener('pagehide', gravarCacheJa);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') gravarCacheJa(); });
+}
+
+// ---------- Envio em segundo plano ----------
+// Salvar, editar e apagar mudam a tela na hora; o envio ao Supabase vai numa fila que fica
+// guardada no aparelho. Sem internet, espera e manda quando voltar. Todos os envios podem
+// ser repetidos sem duplicar (id gerado aqui, upsert, update e delete por id).
+const CHAVE_PENDENTES = 'tp.pendentes.v1';
+let pendentes = lerLocal(CHAVE_PENDENTES, []);
+let fila = Promise.resolve();
+let avisarErro = () => {};
+const semRede = (e) => /failed to fetch|network|load failed|fetch failed|timeout|offline/i.test(`${(e && e.message) || e}`);
+
+async function enviar(o) {
+  const tabela = cliente.from(o.tabela);
+  const compat = o.tabela === 'registros' ? paraBancoParcial : (x) => x;
+  let res = { error: null };
+  if (o.op === 'inserir') {
+    res = await gravarCompat(() => cliente.from(o.tabela).upsert(o.linhas.map(compat), { onConflict: 'id', ignoreDuplicates: true }));
+  } else if (o.op === 'upsert') {
+    res = await tabela.upsert(o.linhas, { onConflict: o.conflito });
+  } else if (o.op === 'atualizar') {
+    for (let i = 0; i < o.ids.length && !res.error; i += 100) { // em lotes, para o endereço não ficar grande demais
+      const lote = o.ids.slice(i, i + 100);
+      res = await gravarCompat(() => (lote.length === 1
+        ? cliente.from(o.tabela).update(compat(o.campos)).eq('id', lote[0])
+        : cliente.from(o.tabela).update(compat(o.campos)).in('id', lote)));
+    }
+  } else if (o.op === 'apagar') {
+    for (let i = 0; i < o.ids.length && !res.error; i += 100) res = await cliente.from(o.tabela).delete().in('id', o.ids.slice(i, i + 100));
+  }
+  if (res.error) throw new Error(res.error.message || String(res.error));
+}
+
+/** Manda o que estiver pendente, em ordem. Sem internet, para e tenta de novo depois. */
+function processarFila() {
+  fila = fila.then(async () => {
+    while (pendentes.length) {
+      try {
+        await enviar(pendentes[0]);
+      } catch (err) {
+        if (semRede(err)) return; // continua guardado; tenta quando a internet voltar
+        // Erro de verdade (ex.: banco recusou): descarta o que estava na fila e volta ao que está na nuvem
+        pendentes = [];
+        gravarLocal(CHAVE_PENDENTES, pendentes);
+        try { await baixarTudo(); } catch { /* sem internet: fica a cópia local */ }
+        avisarErro(erroLegivel(err));
+        return;
+      }
+      pendentes.shift();
+      gravarLocal(CHAVE_PENDENTES, pendentes);
+    }
+  });
+  return fila;
+}
+
+function enfileirar(...ops) {
+  pendentes.push(...ops);
+  gravarLocal(CHAVE_PENDENTES, pendentes);
+  salvarCache();
+  processarFila();
+}
+if (typeof addEventListener === 'function') addEventListener('online', () => processarFila());
+
+/** Registro como fica na cópia local (mesmo formato do que vem do banco). */
+function comoNoBanco(id, r, criadoEm) {
+  return doBanco({ id, ...paraBanco(r), criado_em: criadoEm || r.criadoEm || new Date().toISOString() });
+}
+
+// Busca tudo do Supabase (o carregar público espera a fila de envio antes).
+let baixarTudo = async () => {};
 
 export const store = {
   // ---------- Login ----------
@@ -186,14 +270,34 @@ export const store = {
     return { precisaConfirmar: !data.session };
   },
   async sair() {
+    await processarFila().catch(() => {});
     await cliente.auth.signOut();
     usuarioAtual = null;
     cache = VAZIO();
-    salvarCache();
+    pendentes = [];
+    gravarLocal(CHAVE_PENDENTES, pendentes);
+    cacheSujo = true;
+    gravarCacheJa();
   },
 
   // ---------- Dados ----------
   async carregar() {
+    await processarFila();
+    if (pendentes.length) throw new Error('Sem conexão com a internet.'); // mudanças guardadas esperando a internet
+    await baixarTudo();
+  },
+  /** Mudanças feitas sem internet que ainda vão ser enviadas. */
+  pendentes() {
+    return pendentes.length;
+  },
+  /** Espera os envios em segundo plano (para testes e antes de sair). */
+  sincronizar() {
+    return processarFila();
+  },
+  aoFalharEnvio(f) {
+    avisarErro = f;
+  },
+  async _baixarTudo() {
     // As tabelas pequenas vão junto com a primeira página de registros (uma ida ao servidor, não duas).
     const outras = Promise.all([
       cliente.from('regras').select('termo, categoria').order('criado_em', { ascending: false }),
@@ -204,15 +308,28 @@ export const store = {
       cliente.from('cartoes').select('*').order('criado_em'),
       cliente.from('estabelecimentos').select('*'),
     ]);
-    const registros = [];
+    // Primeira página já diz quantos são; as outras vêm todas ao mesmo tempo (não uma depois da outra).
     const passo = 1000;
-    for (let de = 0; ; de += passo) {
-      const { data, error } = await cliente
-        .from('registros').select('*').order('data', { ascending: false }).order('id').range(de, de + passo - 1);
-      if (error) falhar(error);
-      if (de === 0 && data.length) for (const c of COLUNAS_NOVAS) if (!(c in data[0])) colunasFaltando.add(c);
-      registros.push(...data.map(doBanco));
-      if (data.length < passo) break;
+    const pagina = (de, contar) => cliente.from('registros').select('*', contar ? { count: 'exact' } : undefined)
+      .order('data', { ascending: false }).order('id').range(de, de + passo - 1);
+    const primeira = await pagina(0, true);
+    if (primeira.error) falhar(primeira.error);
+    if (primeira.data.length) for (const c of COLUNAS_NOVAS) if (!(c in primeira.data[0])) colunasFaltando.add(c);
+    const total = primeira.count ?? primeira.data.length;
+    const resto = [];
+    for (let de = passo; de < total; de += passo) resto.push(pagina(de));
+    const paginas = [primeira, ...(await Promise.all(resto))];
+    // Sem a contagem (não deveria acontecer): segue página por página até acabar
+    if (primeira.count == null) {
+      for (let de = passo, ultima = primeira; ultima.data && ultima.data.length === passo; de += passo) {
+        ultima = await pagina(de);
+        paginas.push(ultima);
+      }
+    }
+    const registros = [];
+    for (const pg of paginas) {
+      if (pg.error) falhar(pg.error);
+      for (const row of pg.data) registros.push(doBanco(row));
     }
     const [regras, orcamentos, metas, caixa, contas, cartoes, estabelecimentos] = await outras;
     if (regras.error) falhar(regras.error);
@@ -238,11 +355,13 @@ export const store = {
   regras() {
     return cache.regras;
   },
+  /** Novo registro: aparece na hora; o envio segue em segundo plano. */
   async adicionar(lancamentos) {
-    const { data, error } = await gravarCompat(() => cliente.from('registros').insert(lancamentos.map(paraBancoCompat)).select());
-    if (error) falhar(error);
-    cache.registros.push(...data.map(doBanco));
-    salvarCache();
+    const agora = new Date().toISOString();
+    const novos = lancamentos.map((l) => comoNoBanco(l.id || crypto.randomUUID(), l, agora));
+    cache.registros.push(...novos);
+    enfileirar({ op: 'inserir', tabela: 'registros', linhas: novos.map((r) => ({ id: r.id, ...paraBanco(r) })) });
+    return novos;
   },
   /**
    * Grava registros de extrato sem repetir: pula referências que já existem.
@@ -250,6 +369,7 @@ export const store = {
    * Retorna quantos foram gravados.
    */
   async importar(lancamentos) {
+    await processarFila();
     for (let tentativa = 0; ; tentativa++) {
       const refs = new Set(cache.registros.map((r) => r.refExterna).filter(Boolean));
       const novos = lancamentos.filter((l) => !l.refExterna || !refs.has(l.refExterna));
@@ -271,13 +391,12 @@ export const store = {
   semEstabelecimentos: false,
   async salvarEstabelecimentos(lista) {
     if (!lista.length || this.semEstabelecimentos) return;
-    const { error } = await cliente.from('estabelecimentos')
-      .upsert(lista.map((e) => ({ chave: e.chave, nome: e.nome || null, apelido: e.apelido || null, item: e.item || null, categoria: e.categoria || null, vezes: e.vezes || 1,
-        atualizado_em: new Date().toISOString() })), { onConflict: 'user_id,chave' });
-    if (error) falhar(error);
-    const novas = new Map(lista.map((e) => [e.chave, e]));
+    const agora = new Date().toISOString();
+    const linhas = lista.map((e) => ({ chave: e.chave, nome: e.nome || null, apelido: e.apelido || null, item: e.item || null,
+      categoria: e.categoria || null, vezes: e.vezes ?? 1, atualizado_em: agora }));
+    const novas = new Map(linhas.map((e) => [e.chave, e]));
     cache.estabelecimentos = [...this.estabelecimentos().filter((e) => !novas.has(e.chave)), ...novas.values()];
-    salvarCache();
+    enfileirar({ op: 'upsert', tabela: 'estabelecimentos', linhas, conflito: 'user_id,chave' });
   },
   /**
    * Dá um nome seu para quem recebeu ("Mãe", "Posto Rodovia X") e aplica em
@@ -286,57 +405,41 @@ export const store = {
   async renomearQuem(chave, apelido, ids, original) {
     const antes = this.estabelecimentos().find((e) => e.chave === chave);
     await this.salvarEstabelecimentos([{ ...(antes || { chave, nome: original, vezes: 1 }), apelido: apelido || null }]);
-    const novos = new Map();
     const nome = apelido || original || null;
-    const atualizarLotes = async (lista, campos) => {
-      for (let i = 0; i < lista.length; i += 100) { // em lotes, para o endereço não ficar grande demais
-        const { data, error } = await gravarCompat(() => cliente.from('registros')
-          .update(paraBancoParcial(campos)).in('id', lista.slice(i, i + 100)).select());
-        if (error) falhar(error);
-        for (const row of data) novos.set(row.id, doBanco(row));
-      }
-    };
-    await atualizarLotes(ids, { local: nome, estabelecimento: chave });
+    const dele = new Set(ids);
     // Onde o nome do item ainda é o nome antigo (você não disse o que foi), troca também.
     const antigos = new Set([original, antes && antes.apelido].filter(Boolean).map((t) => t.toLowerCase()));
-    const comNomeAntigo = cache.registros.filter((r) => ids.includes(r.id) && antigos.has(String(r.item).toLowerCase())).map((r) => r.id);
-    if (nome) await atualizarLotes(comNomeAntigo, { item: nome });
-    cache.registros = cache.registros.map((r) => novos.get(r.id) || r);
-    salvarCache();
+    const comNomeAntigo = [];
+    cache.registros = cache.registros.map((r) => {
+      if (!dele.has(r.id)) return r;
+      const trocarItem = nome && antigos.has(String(r.item).toLowerCase());
+      if (trocarItem) comNomeAntigo.push(r.id);
+      return { ...r, local: nome, estabelecimento: chave, ...(trocarItem ? { item: nome } : {}) };
+    });
+    const ops = [{ op: 'atualizar', tabela: 'registros', ids, campos: { local: nome, estabelecimento: chave } }];
+    if (comNomeAntigo.length) ops.push({ op: 'atualizar', tabela: 'registros', ids: comNomeAntigo, campos: { item: nome } });
+    enfileirar(...ops);
   },
   async atualizar(id, m) {
-    const { data, error } = await gravarCompat(() => cliente.from('registros').update(paraBancoCompat(m)).eq('id', id).select().single());
-    if (error) falhar(error);
-    cache.registros = cache.registros.map((r) => (r.id === id ? doBanco(data) : r));
-    salvarCache();
+    const antigo = cache.registros.find((r) => r.id === id);
+    const novo = comoNoBanco(id, m, antigo && antigo.criadoEm);
+    cache.registros = cache.registros.map((r) => (r.id === id ? novo : r));
+    enfileirar({ op: 'atualizar', tabela: 'registros', ids: [id], campos: paraBanco(novo) });
   },
   async remover(id) {
-    const { error } = await cliente.from('registros').delete().eq('id', id);
-    if (error) falhar(error);
-    cache.registros = cache.registros.filter((r) => r.id !== id);
-    salvarCache();
+    return this.removerVarios([id]);
   },
-  /** Apaga vários de uma vez (em lotes, para o endereço não ficar grande demais). */
+  /** Apaga vários de uma vez. */
   async removerVarios(ids) {
-    for (let i = 0; i < ids.length; i += 100) {
-      const lote = ids.slice(i, i + 100);
-      const { error } = await cliente.from('registros').delete().in('id', lote);
-      if (error) {
-        salvarCache();
-        falhar(error);
-      }
-      const apagados = new Set(lote);
-      cache.registros = cache.registros.filter((r) => !apagados.has(r.id));
-    }
-    salvarCache();
+    const apagados = new Set(ids);
+    cache.registros = cache.registros.filter((r) => !apagados.has(r.id));
+    enfileirar({ op: 'apagar', tabela: 'registros', ids: [...ids] });
   },
   async aprenderRegra(termo, categoria) {
     const t = termo.trim().toLowerCase();
     if (!t) return;
-    const { error } = await cliente.from('regras').upsert({ termo: t, categoria }, { onConflict: 'user_id,termo' });
-    if (error) falhar(error);
     cache.regras = [{ termo: t, categoria }, ...cache.regras.filter((r) => r.termo !== t)];
-    salvarCache();
+    enfileirar({ op: 'upsert', tabela: 'regras', linhas: [{ termo: t, categoria }], conflito: 'user_id,termo' });
   },
 
   // ---------- Limites por categoria ----------
@@ -477,3 +580,5 @@ export const store = {
     return enviados;
   },
 };
+
+baixarTudo = () => store._baixarTudo();

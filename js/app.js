@@ -8,6 +8,7 @@ import { telaInicio } from './telas/inicio.js';
 import { telaLancamentos } from './telas/lancamentos.js';
 import { telaPainel } from './telas/painel.js';
 import { telaMetas } from './telas/metas.js';
+import { abrirLembrancas } from './telas/lembrancas.js';
 
 const ABAS = {
   inicio: { nome: 'Início', icone: ICONES.inicio, tela: telaInicio },
@@ -67,6 +68,12 @@ document.addEventListener('click', (e) => {
 
 tema.aoMudar(() => app.render());
 
+// Salvar é instantâneo; se o envio ao Supabase falhar depois, avisa e mostra o que ficou na nuvem.
+store.aoFalharEnvio((msg) => {
+  aviso(`Não salvou: ${msg}`, 'erro');
+  app.render();
+});
+
 // ---------------------------------------------------------------- Ajustes
 const OPCOES_TEMA = [
   { id: 'claro', nome: 'Claro', icone: ICONES.sol },
@@ -94,6 +101,10 @@ function abrirAjustes() {
     <h3 class="sec-titulo">Aparência</h3>
     ${seletorTema()}
     <p class="dica">Automático segue o modo do celular.</p>
+    <h3 class="sec-titulo">Extrato</h3>
+    <div class="menu">
+      <button type="button" class="menu-item" id="abrir-lembrancas">${ICONES.ok}<span>Lembranças do extrato</span>${ICONES.avancar}</button>
+    </div>
     <h3 class="sec-titulo">Conta</h3>
     <div class="menu">
       <button type="button" class="menu-item" id="trocar-senha">${ICONES.chave}<span>Trocar senha</span>${ICONES.avancar}</button>
@@ -101,7 +112,7 @@ function abrirAjustes() {
     </div>
     <h3 class="sec-titulo">Aplicativo</h3>
     ${blocoInstalar()}
-    <p class="versao">Tio Patinhas · versão 4.5</p>`, (folha, fechar) => {
+    <p class="versao">Tio Patinhas · versão 4.8</p>`, (folha, fechar) => {
     $('#instalar-ajustes', folha)?.addEventListener('click', async () => {
       fechar();
       await instalar();
@@ -115,6 +126,7 @@ function abrirAjustes() {
       });
     }));
     $('#trocar-senha', folha).addEventListener('click', () => abrirTrocarSenha());
+    $('#abrir-lembrancas', folha).addEventListener('click', () => abrirLembrancas());
     $('#sair', folha).addEventListener('click', async () => {
       if (!(await confirmar('Sair da conta neste aparelho? Seus dados continuam guardados na nuvem.', { sim: 'Sair', perigo: true }))) return;
       await store.sair();
@@ -125,7 +137,7 @@ function abrirAjustes() {
 
 // ---------------------------------------------------------------- Instalar no celular
 let pedidoInstalacao = null;
-const instalado = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const instalado = () => window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches || navigator.standalone === true;
 
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault(); // mostramos o nosso botão em vez do aviso do Chrome

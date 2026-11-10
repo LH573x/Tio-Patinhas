@@ -1,16 +1,22 @@
 // Service worker: deixa o app abrir rápido e funcionar offline.
-const VERSAO = 'tp-v4.7';
+const VERSAO = 'tp-v4.8';
 const ARQUIVOS = [
   './', './index.html', './css/style.css', './manifest.webmanifest',
   './js/app.js', './js/config.js', './js/store.js', './js/parser.js', './js/analise.js', './js/extrato.js',
   './js/categorias.js', './js/graficos.js', './js/tema.js', './js/util.js',
   './js/telas/inicio.js', './js/telas/lancamentos.js', './js/telas/painel.js', './js/telas/metas.js',
-  './js/telas/registro.js', './js/telas/anexos.js', './js/telas/contas.js', './js/telas/cartoes.js', './js/telas/alertas.js', './js/telas/revisar.js', './js/telas/assessor.js', './js/assessor.js', './js/mascote.js', './js/vendor/supabase-2.118.0.js',
+  './js/telas/registro.js', './js/telas/anexos.js', './js/telas/contas.js', './js/telas/cartoes.js', './js/telas/alertas.js', './js/telas/revisar.js', './js/telas/assessor.js', './js/telas/lembrancas.js', './js/assessor.js', './js/mascote.js', './js/vendor/supabase-2.118.0.js',
   './icons/icon.svg', './icons/logo.svg', './icons/mascote.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png',
 ];
 
+// Instala a versão inteira de uma vez. O "?v=" fura o cache de 10 min do GitHub Pages,
+// para a versão nova não guardar arquivos velhos.
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSAO).then((c) => c.addAll(ARQUIVOS.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(VERSAO).then((c) => Promise.all(ARQUIVOS.map(async (u) => {
+    const resp = await fetch(new Request(`${u}${u.includes('?') ? '&' : '?'}v=${VERSAO}`, { cache: 'reload' }));
+    if (!resp.ok) throw new Error(`${u}: ${resp.status}`);
+    await c.put(u, resp);
+  }))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -21,36 +27,23 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// Arquivos que nunca mudam no mesmo endereço (biblioteca com versão no nome, ícones): direto do cache.
-const FIXOS = /\/js\/vendor\/|\/icons\//;
-
-function guardar(req, resp) {
-  if (resp && resp.ok) {
-    const copia = resp.clone();
-    caches.open(VERSAO).then((c) => c.put(req, copia));
-  }
-  return resp;
-}
-
-// O resto: rede primeiro (pega atualizações), mas se a rede demorar mais de
-// 2,5 s (sinal fraco) abre com a cópia guardada e atualiza em segundo plano.
+// Abre direto da cópia guardada (sem esperar a internet a cada arquivo). Versão nova chega
+// quando este sw.js muda (VERSAO): o app procura ao abrir e recarrega sozinho.
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
-  if (FIXOS.test(new URL(req.url).pathname)) {
-    e.respondWith(caches.match(req).then((r) => r || fetch(req).then((resp) => guardar(req, resp))));
-    return;
-  }
-  // no-cache: confere com o servidor (resposta 304 rápida se nada mudou). Sem isso o navegador usa a
-  // cópia de até 10 min do GitHub Pages e uma versão nova demora a aparecer.
-  const rede = fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }).then((resp) => guardar(req, resp));
-  e.waitUntil(rede.catch(() => {}));
-  e.respondWith(new Promise((resolve) => {
-    let respondeu = false;
-    const responder = (r) => { if (!respondeu && r) { respondeu = true; resolve(r); } };
-    const doCache = () => caches.match(req).then((r) => r || (req.mode === 'navigate' ? caches.match('./index.html') : null));
-    const timer = setTimeout(() => doCache().then(responder), 2500);
-    rede.then((r) => { clearTimeout(timer); responder(r); })
-      .catch(() => { clearTimeout(timer); doCache().then((r) => responder(r || Response.error())); });
-  }));
+  e.respondWith((async () => {
+    const cache = await caches.open(VERSAO);
+    const guardado = req.mode === 'navigate'
+      ? await cache.match('./index.html')
+      : await cache.match(req, { ignoreSearch: true });
+    if (guardado) return guardado;
+    try {
+      const resp = await fetch(req);
+      if (resp.ok && new URL(req.url).search === '') cache.put(req, resp.clone());
+      return resp;
+    } catch (err) {
+      return Response.error();
+    }
+  })());
 });

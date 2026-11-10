@@ -5,18 +5,43 @@
   "description": "Meu assessor de gastos pessoais",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
+  "display": "fullscreen",
   "orientation": "portrait",
   "background_color": "#fafaf8",
   "theme_color": "#fafaf8",
   "lang": "pt-BR",
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ],
   "shortcuts": [
-    { "name": "Registrar gasto", "url": "./?aba=inicio" },
-    { "name": "Painel do mês", "url": "./?aba=painel" }
+    {
+      "name": "Registrar gasto",
+      "url": "./?aba=inicio"
+    },
+    {
+      "name": "Painel do mês",
+      "url": "./?aba=painel"
+    }
   ]
 }
