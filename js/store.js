@@ -316,6 +316,20 @@ export const store = {
     cache.registros = cache.registros.filter((r) => r.id !== id);
     salvarCache();
   },
+  /** Apaga vários de uma vez (em lotes, para o endereço não ficar grande demais). */
+  async removerVarios(ids) {
+    for (let i = 0; i < ids.length; i += 100) {
+      const lote = ids.slice(i, i + 100);
+      const { error } = await cliente.from('registros').delete().in('id', lote);
+      if (error) {
+        salvarCache();
+        falhar(error);
+      }
+      const apagados = new Set(lote);
+      cache.registros = cache.registros.filter((r) => !apagados.has(r.id));
+    }
+    salvarCache();
+  },
   async aprenderRegra(termo, categoria) {
     const t = termo.trim().toLowerCase();
     if (!t) return;
