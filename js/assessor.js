@@ -1,8 +1,9 @@
 // O que o Tio Patinhas tem a dizer hoje. Função pura (sem tela), para poder ser testada.
 // Prioridade: um alerta ou dica de economia de verdade; senão um elogio; e, de vez em quando, um ditado.
-import { dicas, resumoMes, mesDe, iso, nomeMes, somarMesesMes } from './analise.js';
+import { dicas, resumoMes, mesDe, iso, nomeMes, somarMesesMes, formatador } from './analise.js';
 
-const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+const REAIS_0 = formatador({ style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+const fmt = (v) => REAIS_0.format(v);
 
 export const DITADOS = [
   { titulo: 'De grão em grão…', texto: 'Um cafezinho de R$ 6 todo dia útil vira uns R$ 130 no fim do mês. O miúdo é onde o dinheiro escapa.' },

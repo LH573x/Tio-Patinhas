@@ -1,5 +1,5 @@
 // Pequenas funções usadas pelas telas.
-import { DIAS_SEMANA, MESES_CURTOS, iso, somarDias } from './analise.js';
+import { DIAS_SEMANA, MESES_CURTOS, iso, somarDias, formatador } from './analise.js';
 
 export const $ = (sel, raiz = document) => raiz.querySelector(sel);
 export const $$ = (sel, raiz = document) => [...raiz.querySelectorAll(sel)];
@@ -8,10 +8,11 @@ export function esc(t) {
   return String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+const REAIS = formatador({ style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const REAIS_INTEIROS = formatador({ style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
 export function reais(v, { centavos = true, sinal = false } = {}) {
-  const s = (Math.abs(v) || 0).toLocaleString('pt-BR', {
-    style: 'currency', currency: 'BRL', minimumFractionDigits: centavos ? 2 : 0, maximumFractionDigits: centavos ? 2 : 0,
-  });
+  const s = (centavos ? REAIS : REAIS_INTEIROS).format(Math.abs(v) || 0);
   if (v < 0) return `−${s}`;
   return sinal && v > 0 ? `+${s}` : s;
 }
@@ -41,7 +42,7 @@ export function selo(texto, tipo = 'neutro') {
 }
 
 export function pct(v, casas = 0) {
-  return `${(v * 100).toLocaleString('pt-BR', { maximumFractionDigits: casas })}%`;
+  return `${formatador({ maximumFractionDigits: casas }).format(v * 100)}%`;
 }
 
 export function hojeISO(delta = 0) {

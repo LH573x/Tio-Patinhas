@@ -1,77 +1,72 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-<radialGradient id="f" cx=".5" cy=".42" r=".62"><stop offset="0" stop-color="#ffd978"/><stop offset=".65" stop-color="#e8b84a"/><stop offset="1" stop-color="#cf9a2c"/></radialGradient><rect width="512" height="512" rx="112" fill="url(#f)"/>
-<svg x="46" y="33" width="420" height="479" viewBox="14 6 172 195">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+
   <defs>
-    <linearGradient id="tp1casaco" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1c8a64"/><stop offset="1" stop-color="#0d5c43"/></linearGradient>
-    <linearGradient id="tp1cartola" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3a3d47"/><stop offset=".55" stop-color="#25272f"/><stop offset="1" stop-color="#16171c"/></linearGradient>
-    <linearGradient id="tp1ouro" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe08a"/><stop offset=".5" stop-color="#f0bd45"/><stop offset="1" stop-color="#c98d1c"/></linearGradient>
-    <linearGradient id="tp1bico" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc35c"/><stop offset="1" stop-color="#f08f22"/></linearGradient>
-    <linearGradient id="tp1bico2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9701a"/><stop offset="1" stop-color="#f59a2f"/></linearGradient>
-    <linearGradient id="tp1pena" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1f0eb"/></linearGradient>
-    <radialGradient id="tp1lente" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#ffffff" stop-opacity=".0"/><stop offset="1" stop-color="#bfe3f2" stop-opacity=".28"/></radialGradient>
-    <clipPath id="tp1cabeca"><path d="M100 60c28 0 49 19 49 50 0 15-5 27-13 36l6 3.6-8 1.6 3.6 5.8-9.2-1.8c-8 5-17.4 7.4-28.4 7.4s-20.4-2.4-28.4-7.4l-9.2 1.8 3.6-5.8-8-1.6 6-3.6c-8-9-13-21-13-36 0-31 21-50 49-50z"/></clipPath>
+    <linearGradient id="mborda" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe7a1"/><stop offset=".45" stop-color="#e9b443"/><stop offset="1" stop-color="#a8701a"/>
+    </linearGradient>
+    <linearGradient id="maro" x1=".15" y1="0" x2=".85" y2="1">
+      <stop offset="0" stop-color="#fff0c2"/><stop offset=".5" stop-color="#f1c252"/><stop offset="1" stop-color="#c88d24"/>
+    </linearGradient>
+    <radialGradient id="mcampo" cx=".42" cy=".38" r=".7">
+      <stop offset="0" stop-color="#fbd776"/><stop offset=".6" stop-color="#efbb48"/><stop offset="1" stop-color="#d79c2f"/>
+    </radialGradient>
+    <linearGradient id="mrelevo" x1=".1" y1="0" x2=".9" y2="1">
+      <stop offset="0" stop-color="#fff4cc"/><stop offset=".55" stop-color="#f8d36a"/><stop offset="1" stop-color="#e2a83c"/>
+    </linearGradient>
+    <linearGradient id="mcartola" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c99130"/><stop offset="1" stop-color="#8a5a14"/>
+    </linearGradient>
+    <clipPath id="mdentro"><circle cx="100" cy="100" r="77"/></clipPath>
   </defs>
 
-  <!-- Casaco, colarinho e gravata -->
-  <g stroke="#1f1a17" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round">
-    <path d="M28 201c2-24 17-39 42-44l30 6 30-6c25 5 40 20 42 44z" fill="url(#tp1casaco)"/>
-    <path d="M100 163l-30-7c-7 13-8 27-6 45h17zM100 163l30-7c7 13 8 27 6 45h-17z" fill="#0b4d38"/>
-    <path d="M100 163l-19 38h38z" fill="#f8f7f2"/>
-    <path d="M100 162l-20-8-5 15 15 2zM100 162l20-8 5 15-15 2z" fill="#fff"/>
-    <path d="M100 168l-15-9.6v16.4zM100 168l15-9.6v16.4z" fill="url(#tp1ouro)"/>
-    <rect x="95.4" y="163.6" width="9.2" height="9" rx="3" fill="#f0bd45"/>
-    <circle cx="100" cy="186" r="2.6" fill="url(#tp1ouro)" stroke-width="1.6"/>
-    <circle cx="100" cy="196" r="2.6" fill="url(#tp1ouro)" stroke-width="1.6"/>
-  </g>
-  <path d="M120 182c8 6 17 7 25 3" stroke="#f0bd45" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-dasharray=".1 4.6"/>
-  <circle cx="146.6" cy="184.4" r="4.4" fill="url(#tp1ouro)" stroke="#1f1a17" stroke-width="2"/>
+  <!-- Moeda: serrilha, aro em relevo e campo -->
+  <circle cx="100" cy="100" r="98" fill="url(#mborda)"/>
+  <circle cx="100" cy="100" r="95.6" fill="none" stroke="#9a6514" stroke-width="4.2" stroke-dasharray="1.3 1.7" opacity=".55"/>
+  <circle cx="100" cy="100" r="92" fill="url(#maro)"/>
+  <circle cx="100" cy="100" r="84" fill="url(#mcampo)"/>
+  <path d="M40.6 40.6A84 84 0 0 1 159.4 40.6" fill="none" stroke="#b07a1c" stroke-width="1.6" opacity=".7"/>
+  <path d="M159.4 159.4A84 84 0 0 1 40.6 159.4" fill="none" stroke="#fff3c8" stroke-width="1.6" opacity=".8"/>
+  <circle cx="100" cy="100" r="79.5" fill="none" stroke="#b47e1f" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="0 6.24"/>
 
-  <!-- Cabeça, com sombra do lado direito -->
-  <path d="M100 60c28 0 49 19 49 50 0 15-5 27-13 36l6 3.6-8 1.6 3.6 5.8-9.2-1.8c-8 5-17.4 7.4-28.4 7.4s-20.4-2.4-28.4-7.4l-9.2 1.8 3.6-5.8-8-1.6 6-3.6c-8-9-13-21-13-36 0-31 21-50 49-50z" fill="url(#tp1pena)"/>
-  <g clip-path="url(#tp1cabeca)">
-    <path d="M131 60c14 14 19 34 15 56-3 18-14 34-32 46l40 6 6-108z" fill="#e3e4e6"/>
-    <path d="M58 150c10 10 24 15 42 15s32-5 42-15v20H58z" fill="#e6e6e3"/>
-  </g>
-  <path d="M100 60c28 0 49 19 49 50 0 15-5 27-13 36l6 3.6-8 1.6 3.6 5.8-9.2-1.8c-8 5-17.4 7.4-28.4 7.4s-20.4-2.4-28.4-7.4l-9.2 1.8 3.6-5.8-8-1.6 6-3.6c-8-9-13-21-13-36 0-31 21-50 49-50z" fill="none" stroke="#1f1a17" stroke-width="3" stroke-linejoin="round"/>
+  <!-- Retrato de perfil -->
+  <g clip-path="url(#mdentro)" stroke="#6b4510" stroke-linejoin="round" stroke-linecap="round">
+    <!-- Casaco, camisa, colarinho e gravata-borboleta -->
+    <path d="M30 196c2-26 18-42 46-48l30 4 30-4c26 6 42 22 46 48z" fill="url(#mrelevo)" stroke-width="3"/>
+    <path d="M76 148l30 4-6 44H66c-2-18 2-34 10-48zM136 148l-30 4 6 44h34c2-18-2-34-10-48z" fill="#e7b247" stroke-width="2.6"/>
+    <path d="M106 152l-14 44h28z" fill="#fff1c4" stroke-width="2.4"/>
+    <path d="M106 151l-15-7-3 11 9 2zM106 151l15-7 3 11-9 2z" fill="#fff1c4" stroke-width="2.4"/>
+    <path d="M106 156l-14-8v16zM106 156l14-8v16z" fill="url(#mcartola)" stroke-width="2.4"/>
+    <rect x="102" y="152" width="8" height="8" rx="2.4" fill="#d19a35" stroke-width="2.2"/>
 
-  <!-- Olhos e sobrancelhas -->
-  <path d="M87.5 92c5.6 0 9.6 5.8 9.6 13s-4 13-9.6 13-9.6-5.8-9.6-13 4-13 9.6-13z" fill="#fff"/><path d="M112.5 92c5.6 0 9.6 5.8 9.6 13s-4 13-9.6 13-9.6-5.8-9.6-13 4-13 9.6-13z" fill="#fff"/>
-    <ellipse cx="91.2" cy="108" rx="4.1" ry="5.8" fill="#1f1a17"/><ellipse cx="108.8" cy="108" rx="4.1" ry="5.8" fill="#1f1a17"/>
-    <ellipse cx="92.6" cy="105.8" rx="1.4" ry="1.9" fill="#fff"/><ellipse cx="110.2" cy="105.8" rx="1.4" ry="1.9" fill="#fff"/>
-    <path d="M77.9 101.6c.6-6 4.4-9.6 9.6-9.6s9 3.6 9.6 9.6c-5.4-2.4-13.8-2.4-19.2 0zM102.9 101.6c.6-6 4.4-9.6 9.6-9.6s9 3.6 9.6 9.6c-5.4-2.4-13.8-2.4-19.2 0z" fill="#ecebe6"/>
-    <g fill="none" stroke="#1f1a17" stroke-width="2"><path d="M87.5 92c5.6 0 9.6 5.8 9.6 13s-4 13-9.6 13-9.6-5.8-9.6-13 4-13 9.6-13z"/><path d="M112.5 92c5.6 0 9.6 5.8 9.6 13s-4 13-9.6 13-9.6-5.8-9.6-13 4-13 9.6-13z"/></g>
-    <path d="M78.2 101.8c5.6-2.6 13-2.6 18.6 0M103.2 101.8c5.6-2.6 13-2.6 18.6 0" stroke="#1f1a17" stroke-width="2.6" fill="none" stroke-linecap="round"/>
-  <path d="M69 91c2-8.4 12.4-13 25-10 2.6.6 2.6 3.6.2 3.8-7.8-.4-13.6 1.2-17.6 4.2l1.6 1.8c-3.2.4-6.2.6-9.2.2zM131 91c-2 -8.4 -12.4 -13 -25 -10 -2.6 0.6 -2.6 3.6 -0.2 3.8 7.8 -0.4 13.6 1.2 17.6 4.2l-1.6 1.8c3.2 0.4 6.2 0.6 9.2 0.2z" fill="#e4e3de" stroke="#1f1a17" stroke-width="2.2" stroke-linejoin="round"/>
+    <!-- Cabeça -->
+    <path d="M116 66c22 0 37 16 37 38 0 23-16 39-38 39-12 0-22-4-28-12-5-6-8-14-8-24 0-24 15-41 37-41z" fill="url(#mrelevo)" stroke-width="3.2"/>
+    <path d="M144 80c6 7 9 15 9 24 0 20-12 34-30 38 16-8 24-22 24-38 0-9-1-17-3-24z" fill="#e3a83c" stroke="none" opacity=".55"/>
 
-  <!-- Bico -->
-  <g stroke="#1f1a17" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round">
-    <path d="M80 139c3 10 10.6 15 20 15s17-5 20-15z" fill="url(#tp1bico2)"/>
-    <path d="M100 119c-14 0-25 3-30.6 8.6-5.4 5.6-4 12.6 3 15.4 7 2.8 16.6 3.6 27.6 3.6s20.6-.8 27.6-3.6c7-2.8 8.4-9.8 3-15.4C125 122 114 119 100 119z" fill="url(#tp1bico)"/>
-  </g>
-  <path d="M80 126c5-2.4 12-3.6 20-3.6" stroke="#fff3d6" stroke-width="2.6" fill="none" stroke-linecap="round" opacity=".85"/>
-  <path d="M74 140.6c7 2.4 15.4 3.2 26 3.2s19-.8 26-3.2" stroke="#d27417" stroke-width="2.2" fill="none" stroke-linecap="round" opacity=".7"/>
-  <path d="M93 128.6c.8-1.4 2.4-1.4 3.2 0M103.8 128.6c.8-1.4 2.4-1.4 3.2 0" stroke="#1f1a17" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+    <!-- Bico largo de pato -->
+    <path d="M89 112.4c-8 4-20 6.6-31 6.8-5 .1-8.4-.4-10-1.2 2 3.4 7.4 5.4 14 5.4 11 0 20-2.6 27-6.6z" fill="#e5ad40" stroke-width="2.6"/>
+    <path d="M88 97c-14-1-30 0-40 3-9 2.6-11 9-6 12.4 4 2.6 12 3.4 22 2.6 9-.6 18-2.4 25-5z" fill="url(#mrelevo)" stroke-width="3.2"/>
+    <path d="M57.4 103.6c2.2-.8 4.6-1.2 6.8-1.2" stroke-width="2.4" fill="none"/>
+    <path d="M50 104.4c9-3.4 21-4.6 33-4" stroke="#fff6d6" stroke-width="2" fill="none" opacity=".9"/>
 
-  <!-- Óculos redondos dourados -->
-  <g fill="url(#tp1lente)" stroke="#b9861f" stroke-width="2.8" stroke-linecap="round">
-    <circle cx="86" cy="105" r="15"/><circle cx="114" cy="105" r="15"/>
-  </g>
-  <g fill="none" stroke-linecap="round">
-    <circle cx="86" cy="105" r="15" stroke="#f3cd6a" stroke-width="1" stroke-dasharray="14 80" transform="rotate(200 86 105)"/>
-    <circle cx="114" cy="105" r="15" stroke="#f3cd6a" stroke-width="1" stroke-dasharray="14 80" transform="rotate(200 114 105)"/>
-    <path d="M75.4 99.4c1-2.6 2.6-4.6 4.8-6M103.4 99.4c1-2.6 2.6-4.6 4.8-6" stroke="#fff" stroke-width="2" opacity=".9"/>
-    <path d="M71.2 102.6L53 97.6M128.8 102.6L147 97.6" stroke="#b9861f" stroke-width="2.6"/>
-  </g>
+    <!-- Olho, de pálpebra meio baixa -->
+    <ellipse cx="102" cy="92" rx="6.4" ry="8.4" fill="#fff6dc" stroke-width="2.2"/>
+    <ellipse cx="100" cy="94.4" rx="3.2" ry="4.6" fill="#6b4510" stroke="none"/>
+    <path d="M95.6 88.6c4.2-2.4 9-2.4 13 0" stroke-width="2.8" fill="none"/>
 
-  <!-- Cartola inclinada -->
-  <g transform="translate(0 -8) rotate(-9 100 66)" stroke="#1f1a17" stroke-width="2.8" stroke-linejoin="round">
-    <path d="M68.5 66c1.5-14 2.2-28 2.8-41 .2-4.6 57.2-4.6 57.4 0 .6 13 1.3 27 2.8 41z" fill="url(#tp1cartola)"/>
-    <path d="M70 51.6c19 2.6 41 2.6 60 0l.8 11.4c-20 3-41.6 3-61.6 0z" fill="url(#tp1ouro)"/>
-    <path d="M70 51.6c19 2.6 41 2.6 60 0" fill="none" stroke-width="1.6" opacity=".5"/>
-    <path d="M44 71c-3.4-5 12-10 56-10s59.4 5 56 10c-3 5-25 9-56 9s-53-4-56-9z" fill="url(#tp1cartola)"/>
-    <path d="M71.3 25c0 3.4 25.6 5.4 28.7 5.4s28.7-2 28.7-5.4" fill="none" stroke-width="2"/>
-    <path d="M79 33c-.4 6-.6 11-.6 15" stroke="#5b606e" stroke-width="4" stroke-linecap="round" fill="none"/>
-    <path d="M58 70c10 3 26 4.6 42 4.6" stroke="#4b4f5c" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <!-- Óculos redondos -->
+    <circle cx="101" cy="93" r="13.5" fill="#fff8e0" fill-opacity=".16" stroke-width="2.8"/>
+    <path d="M114.4 91L142 85" stroke-width="2.8" fill="none"/>
+    <path d="M91.4 85.4c1.8-3 4.6-4.8 8-5.2" stroke="#fff6d6" stroke-width="1.8" fill="none"/>
+
+    <!-- Sobrancelha farta -->
+    <path d="M85 82.4c3.6-7 12.6-10.6 25-9 2.8.4 2.8 3.6.2 3.8-7.8 0-13.4 1.6-17.4 4.6l1.8 1.8c-3.2.6-6.4.4-9.6-1.2z" fill="#fff1c4" stroke-width="2.4"/>
+
+    <!-- Cartola, inclinada para trás -->
+    <g transform="translate(0 -2) rotate(9 118 70)">
+      <path d="M96 66c.8-9 1.2-17 1.6-26 .2-3.6 43-3.6 43.2 0 .4 9 .8 17 1.6 26z" fill="url(#mcartola)" stroke-width="3.2"/>
+      <path d="M97 55.6c14.6 2 29.6 2 44.2 0l.6 9.6c-15 2.2-30.4 2.2-45.4 0z" fill="#ffe08a" stroke-width="2.6"/>
+      <path d="M78 70c-2-4.4 9-8 41-8s43 3.6 41 8c-2 4.4-18 7-41 7s-39-2.6-41-7z" fill="url(#mcartola)" stroke-width="3.2"/>
+      <path d="M104 44c-.4 4-.6 7.6-.6 10.6" stroke="#e3ad48" stroke-width="3.4" fill="none"/>
+    </g>
   </g>
-</svg>
 </svg>

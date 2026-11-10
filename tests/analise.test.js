@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resumoMes, historicoMeses, statusLimites, resumoSemana, dicas, planoMeta, statusContas, rotuloVencimento, previsaoGastos, refConta, faturaDaCompra, faturasCartoes, diaNoMes, cruzouLimite, avisosDoDia } from '../js/analise.js';
+import { resumoMes, historicoMeses, statusLimites, resumoSemana, dicas, planoMeta, statusContas, rotuloVencimento, previsaoGastos, refConta, faturaDaCompra, faturasCartoes, diaNoMes, cruzouLimite, avisosDoDia, doMes, diasEntre, iso } from '../js/analise.js';
 
 const g = (data, item, valor, categoria, extra = {}) => ({ id: `${data}-${item}-${valor}`, tipo: 'gasto', data, item, valor, categoria, ...extra });
 const e = (data, item, valor, categoria = 'Salário') => ({ id: `${data}-${item}`, tipo: 'entrada', data, item, valor, categoria });
@@ -222,4 +222,39 @@ test('avisosDoDia: contas e faturas primeiro, depois limites, ritmo e caixa', ()
   assert.equal(avisos[7].texto, '2 envios esperando a leitura de madrugada');
   assert.equal(avisosDoDia({ registros: [], hoje }).length, 0);
   assert.equal(avisosDoDia({ registros: lista, contas, cartoes: [nubank], hoje }).length, 4); // máximo padrão
+});
+
+test('doMes: separa por mês uma vez e acompanha a lista quando ela muda', () => {
+  const lista = [g('2026-11-02', 'A', 10, 'Outros'), g('2026-10-30', 'B', 20, 'Outros'), g('2026-11-20', 'C', 5, 'Outros')];
+  assert.deepEqual(doMes(lista, '2026-11').map((r) => r.item), ['A', 'C']);
+  assert.deepEqual(doMes(lista, '2026-11', 10).map((r) => r.item), ['A']);
+  assert.deepEqual(doMes(lista, '2026-09'), []);
+  // quem recebe a lista pode mexer nela sem estragar a próxima consulta
+  doMes(lista, '2026-11').pop();
+  assert.equal(doMes(lista, '2026-11').length, 2);
+  // registro novo na mesma lista entra na conta
+  lista.push(g('2026-11-25', 'D', 1, 'Outros'));
+  assert.deepEqual(doMes(lista, '2026-11').map((r) => r.item), ['A', 'C', 'D']);
+  // lista nova (como o store faz a cada mudança) também
+  const nova = lista.filter((r) => r.item !== 'A');
+  assert.deepEqual(doMes(nova, '2026-11').map((r) => r.item), ['C', 'D']);
+});
+
+test('faturasCartoes: compras antigas ficam de fora sem mudar o resultado (vencimento até 62 dias depois)', () => {
+  let maior = 0;
+  for (let i = 0; i < 400; i += 3) {
+    const d = iso(new Date(2026, 0, 1 + i));
+    for (const [f, v] of [[1, 31], [31, 30], [3, 10], [25, 5], [28, 1], [15, 15]]) {
+      maior = Math.max(maior, diasEntre(d, faturaDaCompra(d, { dia_fechamento: f, dia_vencimento: v }).vencimento));
+    }
+  }
+  assert.ok(maior <= 62, `maior intervalo: ${maior}`);
+  const cartao = { id: 'c1', nome: 'Nubank', dia_fechamento: 3, dia_vencimento: 10, limite: 1000 };
+  const compras = [
+    g('2026-08-01', 'Velha', 50, 'Outros', { metodo: 'Crédito', cartaoId: 'c1' }),
+    g('2026-11-05', 'Nova', 80, 'Outros', { metodo: 'Crédito', cartaoId: 'c1' }),
+  ];
+  const [f] = faturasCartoes(compras, [cartao], hoje);
+  assert.equal(f.usado, 80);
+  assert.deepEqual(f.atual.itens.map((r) => r.item), ['Nova']);
 });

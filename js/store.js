@@ -11,6 +11,8 @@ const CHAVE_REGRAS_ANTIGA = 'tp.regras.v1';
 const cliente = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: true, autoRefreshToken: true },
 });
+// Onde o Supabase guarda a sessão neste aparelho (nome padrão dele).
+const CHAVE_SESSAO = `sb-${new URL(SUPABASE_URL).hostname.split('.')[0]}-auth-token`;
 
 function lerLocal(chave, padrao) {
   try {
@@ -47,6 +49,9 @@ function paraBanco(r) {
     estabelecimento: r.estabelecimento || null,
   };
 }
+
+// Nome da coluna no banco, quando é diferente do nome no app.
+const COLUNAS_BANCO = { textoOriginal: 'texto_original', refExterna: 'ref_externa', cartaoId: 'cartao_id', criadoEm: 'criado_em' };
 
 // Banco ainda sem colunas novas (local, hora, cartao_id): grava sem elas até o schema.sql ser rodado de novo.
 const COLUNAS_NOVAS = ['local', 'hora', 'cartao_id', 'estabelecimento'];
@@ -154,6 +159,51 @@ const VAZIO = () => ({ registros: [], regras: [], orcamentos: [], metas: [], cai
 let cache = { ...VAZIO(), ...lerLocal(CHAVE_CACHE, {}) };
 let usuarioAtual = null;
 
+function usuarioDaSessaoGuardada() {
+  const s = lerLocal(CHAVE_SESSAO, null);
+  return s && s.refresh_token && s.user && s.user.id ? s.user : null;
+}
+
+/** A cópia local e a fila são de quem entrou: se outra pessoa entrar neste aparelho, começam do zero. */
+function definirUsuario(u) {
+  usuarioAtual = u;
+  if (!u) return;
+  if (cache.dono && cache.dono !== u.id) {
+    cache = VAZIO();
+    pendentes = [];
+    gravarLocal(CHAVE_PENDENTES, pendentes);
+  }
+  if (cache.dono !== u.id) {
+    cache.dono = u.id;
+    salvarCache();
+  }
+}
+
+// Sem sessão válida (login vencido e sem internet para renovar), o Supabase manda os pedidos
+// como visitante: a nuvem responde tudo vazio e recusa as gravações. Então nada vai sem sessão.
+async function exigirSessao() {
+  const { data } = await cliente.auth.getSession();
+  if (!data || !data.session) throw Object.assign(new Error('Sem conexão com a internet.'), { temporario: true });
+  definirUsuario(data.session.user);
+}
+
+// Mudanças feitas enquanto a cópia da nuvem está sendo baixada valem por cima do que chegar
+// (senão um gasto registrado logo ao abrir o app sumia da tela até a próxima sincronização).
+const rastreios = new Set();
+function marcar(tabela, chaves) {
+  for (const r of rastreios) {
+    const s = r[tabela] || (r[tabela] = new Set());
+    for (const c of chaves) s.add(c);
+  }
+}
+const TUDO = ['*'];
+function sobrepor(daNuvem, local, mudou, chaveDe) {
+  if (!mudou) return daNuvem;
+  if (mudou.has('*')) return local;
+  const locais = new Map(local.map((x) => [chaveDe(x), x]));
+  return [...daNuvem.filter((x) => !mudou.has(chaveDe(x))), ...[...mudou].map((k) => locais.get(k)).filter(Boolean)];
+}
+
 // Gravar a cópia local (centenas de KB) trava a tela por dezenas de ms no celular:
 // junta várias mudanças e grava quando o aparelho estiver livre (ou ao sair do app).
 let cacheSujo = false;
@@ -182,6 +232,9 @@ let pendentes = lerLocal(CHAVE_PENDENTES, []);
 let fila = Promise.resolve();
 let avisarErro = () => {};
 const semRede = (e) => /failed to fetch|network|load failed|fetch failed|timeout|offline/i.test(`${(e && e.message) || e}`);
+// Passa sozinho: sem internet, login vencido (renova e tenta de novo) ou o servidor fora do ar.
+const temporario = (e) => Boolean(e && (e.temporario || semRede(e) || e.status === 401 || e.status === 429 || e.status >= 500
+  || /PGRST30[13]|jwt expired/i.test(`${e.code || ''} ${e.message || ''}`)));
 
 async function enviar(o) {
   const tabela = cliente.from(o.tabela);
@@ -201,26 +254,35 @@ async function enviar(o) {
   } else if (o.op === 'apagar') {
     for (let i = 0; i < o.ids.length && !res.error; i += 100) res = await cliente.from(o.tabela).delete().in('id', o.ids.slice(i, i + 100));
   }
-  if (res.error) throw new Error(res.error.message || String(res.error));
+  if (res.error) throw Object.assign(new Error(res.error.message || String(res.error)), { code: res.error.code, status: res.status });
 }
 
-/** Manda o que estiver pendente, em ordem. Sem internet, para e tenta de novo depois. */
+/**
+ * Manda o que estiver pendente, em ordem. Sem internet (ou com o login vencido), para e tenta
+ * de novo depois, sem perder nada. Se a nuvem recusar um envio, só ele sai da fila.
+ */
 function processarFila() {
   fila = fila.then(async () => {
+    if (!pendentes.length) return;
+    try {
+      await exigirSessao();
+    } catch {
+      return; // sem login válido agora: tudo continua guardado
+    }
+    let recusado = null;
     while (pendentes.length) {
       try {
         await enviar(pendentes[0]);
       } catch (err) {
-        if (semRede(err)) return; // continua guardado; tenta quando a internet voltar
-        // Erro de verdade (ex.: banco recusou): descarta o que estava na fila e volta ao que está na nuvem
-        pendentes = [];
-        gravarLocal(CHAVE_PENDENTES, pendentes);
-        try { await baixarTudo(); } catch { /* sem internet: fica a cópia local */ }
-        avisarErro(erroLegivel(err));
-        return;
+        if (temporario(err)) break; // continua guardado; tenta quando der
+        recusado = err; // ex.: o banco recusou o valor: descarta só este envio e segue com os outros
       }
       pendentes.shift();
       gravarLocal(CHAVE_PENDENTES, pendentes);
+    }
+    if (recusado) {
+      try { await baixarTudo(); } catch { /* sem internet: fica a cópia local */ }
+      avisarErro(erroLegivel(recusado));
     }
   });
   return fila;
@@ -233,6 +295,11 @@ function enfileirar(...ops) {
   processarFila();
 }
 if (typeof addEventListener === 'function') addEventListener('online', () => processarFila());
+// Login renovado: manda o que ficou esperando. Fora do aviso do Supabase, que não pode
+// esperar outro pedido dele mesmo.
+cliente.auth.onAuthStateChange((evento) => {
+  if ((evento === 'TOKEN_REFRESHED' || evento === 'SIGNED_IN') && pendentes.length) setTimeout(processarFila, 0);
+});
 
 /** Registro como fica na cópia local (mesmo formato do que vem do banco). */
 function comoNoBanco(id, r, criadoEm) {
@@ -244,10 +311,21 @@ let baixarTudo = async () => {};
 
 export const store = {
   // ---------- Login ----------
+  /** Quem está com a sessão válida (renova o login se precisar); null se não der. */
   async usuario() {
     const { data } = await cliente.auth.getSession();
-    usuarioAtual = data.session ? data.session.user : null;
-    return usuarioAtual;
+    if (data.session) definirUsuario(data.session.user);
+    else if (!usuarioDaSessaoGuardada()) usuarioAtual = null; // sem internet, mas ainda é a mesma pessoa
+    return data.session ? usuarioAtual : null;
+  },
+  /**
+   * Quem entrou neste aparelho, lido direto da sessão guardada (sem esperar a internet).
+   * Serve para abrir o app na hora com a cópia local; a sessão é conferida em seguida.
+   */
+  usuarioGuardado() {
+    const u = usuarioDaSessaoGuardada();
+    if (u && !usuarioAtual) definirUsuario(u);
+    return u;
   },
   email() {
     return usuarioAtual ? usuarioAtual.email : '';
@@ -264,7 +342,8 @@ export const store = {
   aoMudarLogin(f) {
     cliente.auth.onAuthStateChange((evento, sessao) => {
       if (sessao) usuarioAtual = sessao.user;
-      f(evento);
+      // Avisa a tela fora do aviso do Supabase (que não pode esperar outro pedido dele mesmo).
+      setTimeout(() => f(evento), 0);
     });
   },
   async trocarSenha(nova) {
@@ -274,12 +353,12 @@ export const store = {
   async entrar(email, senha) {
     const { data, error } = await cliente.auth.signInWithPassword({ email, password: senha });
     if (error) falhar(error);
-    usuarioAtual = data.user;
+    definirUsuario(data.user);
   },
   async cadastrar(email, senha) {
     const { data, error } = await cliente.auth.signUp({ email, password: senha });
     if (error) falhar(error);
-    if (data.session) usuarioAtual = data.user;
+    if (data.session) definirUsuario(data.user);
     return { precisaConfirmar: !data.session };
   },
   async sair() {
@@ -311,6 +390,16 @@ export const store = {
     avisarErro = f;
   },
   async _baixarTudo() {
+    const mudou = {};
+    rastreios.add(mudou);
+    try {
+      await exigirSessao();
+      await this._baixarTudoDaNuvem(mudou);
+    } finally {
+      rastreios.delete(mudou);
+    }
+  },
+  async _baixarTudoDaNuvem(mudou) {
     // As tabelas pequenas vão junto com a primeira página de registros (uma ida ao servidor, não duas).
     const outras = Promise.all([
       cliente.from('regras').select('termo, categoria').order('criado_em', { ascending: false }),
@@ -346,26 +435,32 @@ export const store = {
     }
     const [regras, orcamentos, metas, caixa, contas, cartoes, estabelecimentos] = await outras;
     if (regras.error) falhar(regras.error);
+    const local = cache;
     cache = {
-      registros,
+      dono: local.dono,
+      registros: sobrepor(registros, local.registros, mudou.registros, (r) => r.id),
       // Categorias antigas ("Álcool") já aparecem com o nome novo, mesmo antes do SQL de migração.
-      regras: regras.data.map((r) => ({ ...r, categoria: categoriaAtual(r.categoria) })),
+      regras: sobrepor(regras.data.map((r) => ({ ...r, categoria: categoriaAtual(r.categoria) })), local.regras, mudou.regras, (r) => r.termo),
       // Tabelas novas: se o banco ainda não foi atualizado, o app continua funcionando.
-      orcamentos: orcamentos.error ? [] : juntarLimites(orcamentos.data),
-      metas: metas.error ? [] : metas.data.map(numerosMeta),
-      caixa: caixa.error ? [] : caixa.data,
-      contas: contas.error ? [] : contas.data.map((c) => numerosConta({ ...c, categoria: categoriaAtual(c.categoria) })),
-      cartoes: cartoes.error ? [] : cartoes.data.map(numerosCartao),
-      estabelecimentos: estabelecimentos.error ? [] : estabelecimentos.data.map((e) => ({ ...e,
-        categoria: e.categoria && categoriaAtual(e.categoria), vezes: Number(e.vezes) })),
+      orcamentos: sobrepor(orcamentos.error ? [] : juntarLimites(orcamentos.data), local.orcamentos, mudou.orcamentos),
+      metas: sobrepor(metas.error ? [] : metas.data.map(numerosMeta), local.metas, mudou.metas),
+      caixa: sobrepor(caixa.error ? [] : caixa.data, local.caixa, mudou.caixa),
+      contas: sobrepor(contas.error ? [] : contas.data.map((c) => numerosConta({ ...c, categoria: categoriaAtual(c.categoria) })), local.contas || [], mudou.contas),
+      cartoes: sobrepor(cartoes.error ? [] : cartoes.data.map(numerosCartao), local.cartoes || [], mudou.cartoes),
+      estabelecimentos: sobrepor(estabelecimentos.error ? [] : estabelecimentos.data.map((e) => ({ ...e,
+        categoria: e.categoria && categoriaAtual(e.categoria), vezes: Number(e.vezes) })), local.estabelecimentos || [], mudou.estabelecimentos, (e) => e.chave),
     };
     this.semEstabelecimentos = Boolean(estabelecimentos.error);
     this.bancoDesatualizado = Boolean(orcamentos.error || metas.error || caixa.error || contas.error || cartoes.error || estabelecimentos.error || colunasFaltando.size);
     salvarCache();
   },
   bancoDesatualizado: false,
+  /**
+   * Todos os registros. A lista não muda de lugar enquanto nada muda (as telas reaproveitam
+   * os cálculos feitos sobre ela); cada mudança cria uma lista nova. Não altere a lista.
+   */
   listar() {
-    return [...cache.registros];
+    return cache.registros;
   },
   regras() {
     return cache.regras;
@@ -374,7 +469,8 @@ export const store = {
   async adicionar(lancamentos) {
     const agora = new Date().toISOString();
     const novos = lancamentos.map((l) => comoNoBanco(l.id || crypto.randomUUID(), l, agora));
-    cache.registros.push(...novos);
+    cache.registros = [...cache.registros, ...novos];
+    marcar('registros', novos.map((r) => r.id));
     enfileirar({ op: 'inserir', tabela: 'registros', linhas: novos.map((r) => ({ id: r.id, ...paraBanco(r) })) });
     return novos;
   },
@@ -385,13 +481,15 @@ export const store = {
    */
   async importar(lancamentos) {
     await processarFila();
+    await exigirSessao();
     for (let tentativa = 0; ; tentativa++) {
       const refs = new Set(cache.registros.map((r) => r.refExterna).filter(Boolean));
       const novos = lancamentos.filter((l) => !l.refExterna || !refs.has(l.refExterna));
       if (!novos.length) return 0;
       const { data, error } = await gravarCompat(() => cliente.from('registros').insert(novos.map(paraBancoCompat)).select());
       if (!error) {
-        cache.registros.push(...data.map(doBanco));
+        cache.registros = [...cache.registros, ...data.map(doBanco)];
+        marcar('registros', data.map((r) => r.id));
         salvarCache();
         return data.length;
       }
@@ -411,6 +509,7 @@ export const store = {
       categoria: e.categoria || null, vezes: e.vezes ?? 1, atualizado_em: agora }));
     const novas = new Map(linhas.map((e) => [e.chave, e]));
     cache.estabelecimentos = [...this.estabelecimentos().filter((e) => !novas.has(e.chave)), ...novas.values()];
+    marcar('estabelecimentos', [...novas.keys()]);
     enfileirar({ op: 'upsert', tabela: 'estabelecimentos', linhas, conflito: 'user_id,chave' });
   },
   /**
@@ -431,6 +530,7 @@ export const store = {
       if (trocarItem) comNomeAntigo.push(r.id);
       return { ...r, local: nome, estabelecimento: chave, ...(trocarItem ? { item: nome } : {}) };
     });
+    marcar('registros', ids);
     const ops = [{ op: 'atualizar', tabela: 'registros', ids, campos: { local: nome, estabelecimento: chave } }];
     if (comNomeAntigo.length) ops.push({ op: 'atualizar', tabela: 'registros', ids: comNomeAntigo, campos: { item: nome } });
     enfileirar(...ops);
@@ -439,7 +539,20 @@ export const store = {
     const antigo = cache.registros.find((r) => r.id === id);
     const novo = comoNoBanco(id, m, antigo && antigo.criadoEm);
     cache.registros = cache.registros.map((r) => (r.id === id ? novo : r));
+    marcar('registros', [id]);
     enfileirar({ op: 'atualizar', tabela: 'registros', ids: [id], campos: paraBanco(novo) });
+  },
+  /**
+   * Os mesmos campos (ex.: { item, categoria }) em vários registros de uma vez:
+   * a tela muda numa passada só e vai um envio só para a nuvem.
+   */
+  async atualizarVarios(ids, campos) {
+    if (!ids.length) return;
+    const alvo = new Set(ids);
+    cache.registros = cache.registros.map((r) => (alvo.has(r.id) ? { ...r, ...campos } : r));
+    marcar('registros', ids);
+    const banco = Object.fromEntries(Object.entries(campos).map(([k, v]) => [COLUNAS_BANCO[k] || k, v]));
+    enfileirar({ op: 'atualizar', tabela: 'registros', ids: [...alvo], campos: banco });
   },
   async remover(id) {
     return this.removerVarios([id]);
@@ -448,12 +561,14 @@ export const store = {
   async removerVarios(ids) {
     const apagados = new Set(ids);
     cache.registros = cache.registros.filter((r) => !apagados.has(r.id));
+    marcar('registros', apagados);
     enfileirar({ op: 'apagar', tabela: 'registros', ids: [...ids] });
   },
   async aprenderRegra(termo, categoria) {
     const t = termo.trim().toLowerCase();
     if (!t) return;
     cache.regras = [{ termo: t, categoria }, ...cache.regras.filter((r) => r.termo !== t)];
+    marcar('regras', [t]);
     enfileirar({ op: 'upsert', tabela: 'regras', linhas: [{ termo: t, categoria }], conflito: 'user_id,termo' });
   },
 
@@ -462,6 +577,8 @@ export const store = {
     return cache.orcamentos;
   },
   async salvarLimite(categoria, limite) {
+    await exigirSessao();
+    marcar('orcamentos', TUDO);
     if (!limite) {
       const { error } = await cliente.from('orcamentos').delete().eq('categoria', categoria);
       if (error) falhar(error);
@@ -480,6 +597,8 @@ export const store = {
     return cache.metas;
   },
   async salvarMeta(meta) {
+    await exigirSessao();
+    marcar('metas', TUDO);
     const campos = { nome: meta.nome, valor_alvo: meta.valor_alvo, valor_atual: meta.valor_atual || 0, prazo: meta.prazo || null };
     const consulta = meta.id
       ? cliente.from('metas').update(campos).eq('id', meta.id).select().single()
@@ -492,6 +611,8 @@ export const store = {
     return salva;
   },
   async removerMeta(id) {
+    await exigirSessao();
+    marcar('metas', TUDO);
     const { error } = await cliente.from('metas').delete().eq('id', id);
     if (error) falhar(error);
     cache.metas = cache.metas.filter((m) => m.id !== id);
@@ -503,6 +624,8 @@ export const store = {
     return cache.contas || [];
   },
   async salvarConta(conta) {
+    await exigirSessao();
+    marcar('contas', TUDO);
     const campos = { nome: conta.nome, valor: conta.valor, dia_vencimento: conta.dia_vencimento, categoria: conta.categoria || 'Outros',
       metodo: conta.metodo || null, ativa: conta.ativa !== false };
     const consulta = conta.id
@@ -517,6 +640,8 @@ export const store = {
     return salva;
   },
   async removerConta(id) {
+    await exigirSessao();
+    marcar('contas', TUDO);
     const { error } = await cliente.from('contas_fixas').delete().eq('id', id);
     if (error) falhar(error);
     cache.contas = this.contas().filter((c) => c.id !== id);
@@ -528,6 +653,8 @@ export const store = {
     return cache.cartoes || [];
   },
   async salvarCartao(cartao) {
+    await exigirSessao();
+    marcar('cartoes', TUDO);
     const campos = { nome: cartao.nome, dia_fechamento: cartao.dia_fechamento, dia_vencimento: cartao.dia_vencimento,
       limite: cartao.limite || null, cor: cartao.cor || null };
     const consulta = cartao.id
@@ -542,10 +669,13 @@ export const store = {
     return salvo;
   },
   async removerCartao(id) {
+    await exigirSessao();
+    marcar('cartoes', TUDO);
     const { error } = await cliente.from('cartoes').delete().eq('id', id);
     if (error) falhar(error);
     cache.cartoes = this.cartoes().filter((c) => c.id !== id);
     // o banco tira o cartão dos gastos (on delete set null); a cópia local acompanha
+    marcar('registros', cache.registros.filter((r) => r.cartaoId === id).map((r) => r.id));
     cache.registros = cache.registros.map((r) => (r.cartaoId === id ? { ...r, cartaoId: null } : r));
     salvarCache();
   },
@@ -555,7 +685,8 @@ export const store = {
     return cache.caixa;
   },
   async enviarParaCaixa(arquivo, tipo, observacao) {
-    if (!usuarioAtual) await this.usuario();
+    await exigirSessao();
+    marcar('caixa', TUDO);
     const ext = (arquivo.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5);
     const caminho = `${usuarioAtual.id}/${crypto.randomUUID()}.${ext}`;
     const up = await cliente.storage.from('anexos').upload(caminho, arquivo, { contentType: arquivo.type || undefined });
@@ -571,6 +702,8 @@ export const store = {
     return data;
   },
   async removerDaCaixa(item) {
+    await exigirSessao();
+    marcar('caixa', TUDO);
     await cliente.storage.from('anexos').remove([item.caminho]);
     const { error } = await cliente.from('caixa_entrada').delete().eq('id', item.id);
     if (error) falhar(error);

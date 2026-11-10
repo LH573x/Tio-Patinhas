@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Tio Patinhas</title>
   <meta name="description" content="Meu assessor de gastos pessoais">
+  <meta name="author" content="Luiz Hong">
   <meta name="theme-color" content="#fafaf8">
   <meta name="color-scheme" content="light dark">
   <script>
@@ -21,10 +22,9 @@
   </script>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <!-- Fonte guardada no próprio app (abre sem esperar o Google Fonts e funciona sem internet). -->
+  <link rel="preload" href="fonts/inter-latin-v20.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/style.css">
   <!-- Baixa todos os módulos de uma vez, em vez de um puxar o outro em cascata. -->
   <link rel="modulepreload" href="js/app.js">
@@ -48,6 +48,7 @@
   <link rel="modulepreload" href="js/telas/alertas.js">
   <link rel="modulepreload" href="js/telas/revisar.js">
   <link rel="modulepreload" href="js/telas/assessor.js">
+  <link rel="modulepreload" href="js/telas/lembrancas.js">
   <link rel="modulepreload" href="js/assessor.js">
   <link rel="modulepreload" href="js/mascote.js">
 </head>
@@ -61,7 +62,7 @@
 
   <section id="tela-login" class="login" hidden>
     <div class="login-marca">
-      <div class="login-mascote" id="login-mascote"><img src="icons/mascote.svg" alt="" width="116" height="132"></div>
+      <img class="login-logo" src="icons/icon.svg" alt="" width="112" height="112">
       <h1>Tio Patinhas</h1>
       <p>Seu assessor de gastos</p>
     </div>

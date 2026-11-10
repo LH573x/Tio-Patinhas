@@ -10,6 +10,8 @@ import { telaPainel } from './telas/painel.js';
 import { telaMetas } from './telas/metas.js';
 import { abrirLembrancas } from './telas/lembrancas.js';
 
+const VERSAO = '4.13';
+
 const ABAS = {
   inicio: { nome: 'Início', icone: ICONES.inicio, tela: telaInicio },
   lancamentos: { nome: 'Lançamentos', icone: ICONES.lista, tela: telaLancamentos },
@@ -112,7 +114,10 @@ function abrirAjustes() {
     </div>
     <h3 class="sec-titulo">Aplicativo</h3>
     ${blocoInstalar()}
-    <p class="versao">Tio Patinhas · versão 4.9</p>`, (folha, fechar) => {
+    <footer class="creditos">
+      <img src="icons/icon.svg" alt="" width="32" height="32">
+      <span>Tio Patinhas · versão ${VERSAO}<small>Desenvolvido por Luiz Hong</small></span>
+    </footer>`, (folha, fechar) => {
     $('#instalar-ajustes', folha)?.addEventListener('click', async () => {
       fechar();
       await instalar();
@@ -128,8 +133,18 @@ function abrirAjustes() {
     $('#trocar-senha', folha).addEventListener('click', () => abrirTrocarSenha());
     $('#abrir-lembrancas', folha).addEventListener('click', () => abrirLembrancas());
     $('#sair', folha).addEventListener('click', async () => {
-      if (!(await confirmar('Sair da conta neste aparelho? Seus dados continuam guardados na nuvem.', { sim: 'Sair', perigo: true }))) return;
-      await store.sair();
+      const n = store.pendentes();
+      const texto = n
+        ? `Sair da conta neste aparelho? ${n === 1 ? 'Uma mudança feita sem internet ainda não foi enviada e vai se perder'
+          : `${n} mudanças feitas sem internet ainda não foram enviadas e vão se perder`}.`
+        : 'Sair da conta neste aparelho? Seus dados continuam guardados na nuvem.';
+      if (!(await confirmar(texto, { sim: 'Sair', perigo: true }))) return;
+      saindo = true;
+      try {
+        await store.sair();
+      } finally {
+        saindo = false;
+      }
       mostrarApp(false);
     });
   });
@@ -253,9 +268,11 @@ function mostrarApp(logado) {
   $('#app').hidden = !logado;
   $('.abas').hidden = !logado;
   $('.topo').hidden = !logado;
-  if (logado) {
-    $('#btn-ajustes').innerHTML = esc((store.email()[0] || '?').toUpperCase());
-  }
+  if (logado) atualizarAvatar();
+}
+
+function atualizarAvatar() {
+  $('#btn-ajustes').textContent = (store.email()[0] || '?').toUpperCase();
 }
 
 async function aoEntrar() {
@@ -272,6 +289,7 @@ async function aoEntrar() {
   } catch (e) {
     aviso(`Sem sincronizar: ${e.message}`, 'erro');
   }
+  atualizarAvatar();
   app.render();
 }
 
@@ -333,12 +351,29 @@ $('#esqueci-senha').addEventListener('click', () => pedirLink('senha'));
 $('#entrar-link').addEventListener('click', () => pedirLink('entrar'));
 
 let pedirNovaSenha = window.__tpLinkEmail === 'senha';
+let saindo = false;
 store.aoMudarLogin((evento) => {
+  // A sessão acabou (senha trocada em outro aparelho, login revogado): volta para a entrada.
+  if (evento === 'SIGNED_OUT' && !saindo && !$('#app').hidden) {
+    mostrarApp(false);
+    $('#login-aviso').textContent = 'Sua sessão terminou. Entre de novo.';
+  }
   if (evento === 'PASSWORD_RECOVERY') pedirNovaSenha = true;
   if (pedirNovaSenha && !$('#app').hidden) {
     pedirNovaSenha = false;
     abrirTrocarSenha('Crie sua nova senha');
   }
+});
+
+// O app instalado fica aberto por dias: voltando em outro dia, a tela mostra o dia (e o mês) certo.
+let diaDaTela = iso(new Date());
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || $('#app').hidden) return;
+  const hoje = iso(new Date());
+  if (hoje === diaDaTela) return;
+  if (app.mes === mesDe(diaDaTela)) app.mes = mesDe(hoje); // estava no mês atual: continua no mês atual
+  diaDaTela = hoje;
+  app.irPara(app.aba, { rolar: false });
 });
 
 // Ao voltar para o app depois de um tempo, busca novidades (ex.: cupons lidos de madrugada).
@@ -355,16 +390,24 @@ document.addEventListener('visibilitychange', async () => {
 // ---------------------------------------------------------------- Início
 const pedida = new URLSearchParams(location.search).get('aba');
 app.aba = ABAS[pedida] ? pedida : ANTIGAS[pedida] || 'inicio';
+// Quem já entrou neste aparelho vê o app na hora, com a cópia local, e a sessão é conferida em
+// seguida: renovar o login leva um tempo e, sem internet, não dá (antes a tela ficava em branco
+// e depois caía na entrada). Vindo de um link do email, espera o Supabase ler o link.
+const guardado = !window.__tpLinkEmail && store.usuarioGuardado();
+if (guardado) aoEntrar();
 store.usuario()
   .then((u) => {
-    if (u) return aoEntrar();
+    if (u) {
+      if (!guardado) aoEntrar();
+      return;
+    }
+    if (guardado && store.usuarioGuardado()) return; // sem internet para renovar o login: segue com a cópia local
     mostrarApp(false);
     if (window.__tpLinkEmail === 'expirado') {
       $('#login-aviso').textContent = 'Esse link do email expirou ou já foi usado. Peça outro abaixo.';
     }
-    return null;
   })
-  .catch(() => mostrarApp(false));
+  .catch(() => { if (!guardado) mostrarApp(false); });
 
 if ('serviceWorker' in navigator) {
   const tinhaVersao = Boolean(navigator.serviceWorker.controller);

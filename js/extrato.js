@@ -440,6 +440,16 @@ export function prepararImportacao(extrato, existentes, regras = [], estabelecim
   const refs = new Set(existentes.map((r) => r.ref_externa || r.refExterna).filter(Boolean));
   const aprendidos = new Map(estabelecimentos.map((e) => [e.chave, e]));
   const usados = new Set();
+  // Só registros até 3 dias perto das datas do extrato podem ser a mesma transação:
+  // separa esses antes, em vez de comparar cada linha com o histórico inteiro.
+  let ini = Infinity;
+  let fim = -Infinity;
+  for (const t of extrato.transacoes) {
+    const ms = Date.parse(t.data);
+    if (ms < ini) ini = ms;
+    if (ms > fim) fim = ms;
+  }
+  const proximos = existentes.filter((r) => { const ms = Date.parse(r.data); return ms >= ini - 3 * 864e5 && ms <= fim + 3 * 864e5; });
   return extrato.transacoes.map((t) => {
     const nomeBruto = t.nome || t.descricao;
     const nome = limparDescricao(nomeBruto);
@@ -489,7 +499,7 @@ export function prepararImportacao(extrato, existentes, regras = [], estabelecim
     // se fosse a mesma transação, a referência seria igual.
     const familia = familiaRef(t.ref);
     const textoLinha = `${nome} ${t.descricao} ${est ? est.item : ''}`;
-    const candidatos = existentes
+    const candidatos = proximos
       .filter((r) => {
         if (usados.has(r.id) || r.tipo !== t.tipo || diasEntre(r.data, t.data) > 3) return false;
         if (Math.abs(r.valor - t.valor) > Math.max(0.01, t.valor * 0.02)) return false;
