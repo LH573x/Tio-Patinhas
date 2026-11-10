@@ -1,7 +1,7 @@
 // Gastos "A definir": vieram do extrato sem você dizer o que foram.
 // Card no Início e uma folha para ir respondendo um por um, quando der tempo.
 import { CATEGORIAS_GASTO, A_DEFINIR, sugerirCategoria } from '../parser.js';
-import { aprenderEstabelecimentos, lembrarPorValor, chaveEstabelecimento, quemDoRegistro } from '../extrato.js';
+import { aprenderEstabelecimentos, lembrarPorValor, chaveDoRegistro, quemDoRegistro, gastosParecidos } from '../extrato.js';
 import { lembrarLigado } from './lembrancas.js';
 import { store } from '../store.js';
 import { $, $$, esc, reais, abrirFolha, aviso, rotuloDia, ICONES } from '../util.js';
@@ -32,12 +32,6 @@ export function ligarADefinir(raiz, app) {
   $('#abrir-a-definir', raiz)?.addEventListener('click', () => revisarADefinir(app));
 }
 
-/** Chave do estabelecimento de um registro (a gravada na importação, ou a partir do local/nome). */
-function chaveDoRegistro(r) {
-  const quem = quemDoRegistro(r);
-  return quem ? quem.chave : chaveEstabelecimento(r.local || r.item);
-}
-
 /** Folha que mostra um gasto por vez: valor, dia, hora, local e "O que foi?". */
 export function revisarADefinir(app, pulados = new Set()) {
   const todos = pendentes();
@@ -54,6 +48,11 @@ export function revisarADefinir(app, pulados = new Set()) {
   let categoria = est && est.categoria ? est.categoria : null;
   const quem = quemDoRegistro(r);
   const nomeQuem = quem ? (est && est.apelido) || r.local || quem.original : null;
+  // Outros pendentes que parecem ser a mesma coisa: definidos junto com este
+  const parecidos = gastosParecidos(r, todos);
+  const textoSalvar = (n) => (n ? `Salvar ${n + 1} ${fila.length > n + 1 ? 'e próximo' : ''}`.trim()
+    : fila.length > 1 ? 'Salvar e próximo' : 'Salvar');
+  const marcadosNoInicio = parecidos.filter((p) => p.certeza).length;
 
   abrirFolha(`A definir · ${todos.length} ${todos.length === 1 ? 'restante' : 'restantes'}`, `
     <form class="formulario" id="form-definir">
@@ -70,13 +69,27 @@ export function revisarADefinir(app, pulados = new Set()) {
         ${CATEGORIAS.map((c) => `<button type="button" role="radio" class="chip-filtro ${c === categoria ? 'ativo' : ''}" data-cat="${esc(c)}"
           aria-checked="${c === categoria}" style="--cor:${app.cor(c)}"><i></i>${esc(c)}</button>`).join('')}
       </div>
+      ${parecidos.length ? `
+        <div class="definir-parecidos">
+          <div class="definir-parecidos-topo">
+            <span><b>Parecidos</b> <small>Os marcados recebem a mesma resposta</small></span>
+            <button type="button" class="link" id="marcar-todos">${marcadosNoInicio === parecidos.length ? 'Desmarcar todos' : 'Marcar todos'}</button>
+          </div>
+          ${parecidos.map(({ registro: p, certeza }) => `
+            <label class="parecido ${certeza ? '' : 'desmarcada'}">
+              <input type="checkbox" data-id="${esc(p.id)}" ${certeza ? 'checked' : ''} aria-label="Definir também ${esc(p.item)} de ${esc(rotuloDia(p.data))}">
+              <span class="parecido-meio"><span class="parecido-nome">${esc(p.local || p.item)}</span>
+                <small>${esc(rotuloDia(p.data))}${p.hora ? ` · ${esc(p.hora)}` : ''}${certeza ? '' : ' · nome parecido'}</small></span>
+              <span class="parecido-valor">${reais(p.valor)}</span>
+            </label>`).join('')}
+        </div>` : ''}
       ${quem && lembrarLigado() ? `
         <label class="caixinha"><input type="checkbox" name="sempre">
           <span>Todo ${r.tipo === 'entrada' ? 'valor' : 'pagamento'} de ${reais(r.valor)} ${r.tipo === 'entrada' ? 'de' : 'para'} ${esc(nomeQuem)} é isso
           <small>Os próximos iguais do extrato já entram assim</small></span></label>` : ''}
       <div class="acoes-folha">
         <button type="button" class="btn secundario" id="pular">Pular</button>
-        <button type="submit" class="btn primario">${fila.length > 1 ? 'Salvar e próximo' : 'Salvar'}</button>
+        <button type="submit" class="btn primario">${textoSalvar(marcadosNoInicio)}</button>
       </div>
     </form>`, (folha) => {
     const campo = $('input[name=oque]', folha);
@@ -98,6 +111,21 @@ export function revisarADefinir(app, pulados = new Set()) {
       escolhida = true;
       marcar(b.dataset.cat);
     }));
+    const caixas = $$('.parecido input', folha);
+    const marcados = () => caixas.filter((c) => c.checked);
+    const atualizarGrupo = () => {
+      const n = marcados().length;
+      caixas.forEach((c) => c.closest('.parecido').classList.toggle('desmarcada', !c.checked));
+      $('button[type=submit]', folha).textContent = textoSalvar(n);
+      const todosBtn = $('#marcar-todos', folha);
+      if (todosBtn) todosBtn.textContent = n === caixas.length ? 'Desmarcar todos' : 'Marcar todos';
+    };
+    caixas.forEach((c) => c.addEventListener('change', atualizarGrupo));
+    $('#marcar-todos', folha)?.addEventListener('click', () => {
+      const marcar = marcados().length !== caixas.length;
+      caixas.forEach((c) => { c.checked = marcar; });
+      atualizarGrupo();
+    });
     $('#pular', folha).addEventListener('click', () => revisarADefinir(app, new Set([...pulados, r.id])));
     $('#form-definir', folha).addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -109,14 +137,17 @@ export function revisarADefinir(app, pulados = new Set()) {
       const botao = $('button[type=submit]', folha);
       botao.disabled = true;
       try {
-        await store.atualizar(r.id, { ...r, item: oque || r.item, categoria });
+        const ids = new Set(marcados().map((c) => c.dataset.id));
+        const grupo = [r, ...parecidos.map((p) => p.registro).filter((p) => ids.has(p.id))];
+        for (const g of grupo) await store.atualizar(g.id, { ...g, item: oque || g.item, categoria });
         if (oque) {
-          const confirmada = [{ chave: chaveDoRegistro(r), nome: r.local || r.item, item: oque, categoria, valor: r.valor }];
+          const confirmadas = grupo.map((g) => ({ chave: chaveDoRegistro(g), nome: g.local || g.item, item: oque, categoria, valor: g.valor }));
           const sempre = $('input[name=sempre]', folha)?.checked;
           await store.salvarEstabelecimentos([
-            ...aprenderEstabelecimentos(confirmada, store.estabelecimentos()), ...(sempre ? lembrarPorValor(confirmada) : []),
+            ...aprenderEstabelecimentos(confirmadas, store.estabelecimentos()), ...(sempre ? lembrarPorValor(confirmadas.slice(0, 1)) : []),
           ]).catch(() => {});
         }
+        if (grupo.length > 1) aviso(`${grupo.length} gastos definidos como ${categoria}`);
         app.render();
         revisarADefinir(app, pulados);
       } catch (err) {
