@@ -7,6 +7,10 @@ export const CATEGORIAS_GASTO = [
   'Carro',
   'Namorada',
   'Viagens',
+  'Besteira', // evitável: doces, salgadinho, refrigerante...
+  'Rolê',
+  'Álcool',
+  'Entretenimento',
   'Outros',
   'A definir', // gasto do extrato que você ainda não disse o que foi
 ];
@@ -24,14 +28,24 @@ export const METODOS = ['Pix', 'Débito', 'Crédito', 'Dinheiro', 'Vale'];
 const PALAVRAS_CATEGORIA = [
   ['Namorada', ['namorada', 'namo', 'mozao', 'amor', 'presente pra ela', 'date']],
   ['Viagens', ['viagem', 'hotel', 'pousada', 'airbnb', 'passagem', 'aviao', 'voo', 'rodoviaria', 'hospedagem', 'mala']],
+  // "alcool" sozinho continua sendo combustível (Carro); bebida é cerveja, vinho, drink...
   ['Carro', ['gasolina', 'etanol', 'alcool', 'diesel', 'combustivel', 'abasteci', 'abastecer', 'posto', 'oleo', 'pneu',
     'mecanico', 'oficina', 'estacionamento', 'estacionei', 'pedagio', 'lava jato', 'lavagem', 'ipva', 'seguro do carro',
     'licenciamento', 'multa', 'revisao', 'carro', 'zona azul']],
+  ['Álcool', ['cerveja', 'breja', 'chopp', 'chope', 'vinho', 'drink', 'drinque', 'caipirinha', 'caipiroska', 'vodka', 'whisky',
+    'gin', 'cachaca', 'tequila', 'bebida alcoolica', 'heineken', 'skol', 'brahma', 'budweiser', 'corona', 'amstel']],
+  ['Rolê', ['role', 'rolezinho', 'balada', 'festa', 'boate', 'bar', 'barzinho', 'boteco', 'happy hour', 'pub', 'saidinha',
+    'open bar', 'karaoke']],
+  ['Entretenimento', ['cinema', 'filme', 'netflix', 'spotify', 'prime video', 'disney', 'hbo', 'hbo max', 'youtube premium', 'streaming',
+    'show', 'teatro', 'ingresso', 'jogo', 'game', 'steam', 'playstation', 'xbox', 'nintendo', 'museu', 'parque', 'boliche']],
+  ['Besteira', ['besteira', 'doce', 'chocolate', 'bala', 'chiclete', 'bombom', 'brigadeiro', 'salgadinho', 'doritos', 'ruffles',
+    'sorvete', 'acai', 'refrigerante', 'refri', 'coca', 'guarana', 'energetico', 'red bull', 'monster', 'pipoca', 'biscoito',
+    'bolacha', 'trufa', 'kitkat', 'pacoca', 'donut', 'cookie', 'milkshake', 'guloseima']],
   ['Alimentação geral', ['mercado', 'supermercado', 'feira', 'acougue', 'hortifruti', 'sacolao', 'atacadao', 'assai',
     'carrefour', 'padaria', 'arroz', 'feijao', 'carne', 'frango', 'ovos', 'leite', 'verdura', 'fruta', 'compras do mes']],
   ['Refeições', ['salgado', 'coxinha', 'pastel', 'lanche', 'almoco', 'janta', 'jantar', 'cafe', 'restaurante', 'ifood',
-    'delivery', 'pizza', 'hamburguer', 'burger', 'mcdonalds', 'bk', 'marmita', 'self service', 'sorvete', 'acai',
-    'refrigerante', 'cerveja', 'bar', 'lanchonete', 'esfiha', 'sushi', 'pao de queijo', 'refeicao', 'quentinha']],
+    'delivery', 'pizza', 'hamburguer', 'burger', 'mcdonalds', 'bk', 'marmita', 'self service',
+    'lanchonete', 'esfiha', 'sushi', 'pao de queijo', 'refeicao', 'quentinha']],
 ];
 
 const PALAVRAS_ENTRADA = ['recebi', 'salario', 'entrada', 'ganhei', 'reembolso', 'rendimento', 'pagamento recebido', 'caiu'];

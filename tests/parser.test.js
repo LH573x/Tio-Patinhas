@@ -93,3 +93,16 @@ test('cartão pelo nome: vira crédito e sai do item e do local', () => {
   r = interpretar('salgado 8,50 pix', { hoje, cartoes });
   assert.equal(r.cartaoId, null);
 });
+
+test('categorias novas: Besteira, Rolê, Álcool e Entretenimento', () => {
+  const cat = (f) => interpretar(f).categoria;
+  assert.equal(cat('chocolate 5 pix'), 'Besteira');
+  assert.equal(cat('refri 6'), 'Besteira');
+  assert.equal(cat('cerveja 12'), 'Álcool');
+  assert.equal(cat('balada 120'), 'Rolê');
+  assert.equal(cat('bar com amigos 80'), 'Rolê');
+  assert.equal(cat('cinema 40'), 'Entretenimento');
+  assert.equal(cat('show 200 crédito'), 'Entretenimento');
+  assert.equal(cat('alcool 100'), 'Carro'); // combustível
+  assert.equal(cat('pizza 60'), 'Refeições');
+});
