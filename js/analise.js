@@ -469,3 +469,49 @@ export function avisosDoDia({ registros, orcamentos = [], contas = [], cartoes =
 
   return lista.sort((a, b) => b.peso - a.peso).slice(0, maximo).map(({ peso, ...a }) => a);
 }
+
+/** Períodos que dá para escolher ao abrir uma categoria do painel. */
+export const PERIODOS = [
+  { id: 'mes', nome: 'Mês do painel' },
+  { id: '30d', nome: '30 dias' },
+  { id: '3m', nome: '3 meses' },
+  { id: '6m', nome: '6 meses' },
+  { id: 'ano', nome: 'Este ano' },
+  { id: 'tudo', nome: 'Tudo' },
+  { id: 'datas', nome: 'Escolher datas' },
+];
+
+/**
+ * Datas (ISO, inclusivas) de um período. "mes" é o mês aberto no painel (no mês
+ * atual, só até hoje, como o total do painel); "3m"/"6m" contam o mês atual
+ * inteiro mais os anteriores; "datas" usa o de/até escolhidos.
+ */
+export function periodoDatas(id, { mes, hoje, de, ate } = {}) {
+  const h = iso(hoje);
+  const inicioMes = (m) => `${m}-01`;
+  switch (id) {
+    case 'mes': {
+      const fim = `${mes}-${String(diasNoMes(mes)).padStart(2, '0')}`;
+      return { de: inicioMes(mes), ate: mes === mesDe(h) ? h : fim };
+    }
+    case '30d': return { de: somarDias(h, -29), ate: h };
+    case '3m': return { de: inicioMes(somarMesesMes(mesDe(h), -2)), ate: h };
+    case '6m': return { de: inicioMes(somarMesesMes(mesDe(h), -5)), ate: h };
+    case 'ano': return { de: `${h.slice(0, 4)}-01-01`, ate: h };
+    case 'tudo': return { de: '0000-01-01', ate: h };
+    case 'datas': {
+      const a = de || h;
+      const b = ate || h;
+      return a <= b ? { de: a, ate: b } : { de: b, ate: a };
+    }
+    default: return periodoDatas('mes', { mes, hoje });
+  }
+}
+
+/** Gastos de uma categoria no período, do maior valor para o menor (empate: mais recente primeiro). */
+export function gastosDaCategoria(registros, categoria, { de, ate }) {
+  const lista = registros
+    .filter((r) => r.tipo === 'gasto' && r.categoria === categoria && r.data >= de && r.data <= ate)
+    .sort((a, b) => b.valor - a.valor || b.data.localeCompare(a.data) || (b.hora || '').localeCompare(a.hora || ''));
+  return { lista, total: soma(lista) };
+}

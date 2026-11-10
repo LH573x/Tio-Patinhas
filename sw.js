@@ -1,5 +1,5 @@
 // Service worker: deixa o app abrir rápido e funcionar offline.
-const VERSAO = 'tp-v4.8';
+const VERSAO = 'tp-v4.9';
 const ARQUIVOS = [
   './', './index.html', './css/style.css', './manifest.webmanifest',
   './js/app.js', './js/config.js', './js/store.js', './js/parser.js', './js/analise.js', './js/extrato.js',
