@@ -9,6 +9,10 @@ export const CATEGORIAS_INFO = {
   Carro: { icone: '🚗', cor: '#2a78d6', corEscura: '#3987e5' },
   Namorada: { icone: '❤️', cor: '#e87ba4', corEscura: '#d55181' },
   Viagens: { icone: '✈️', cor: '#6250d6', corEscura: '#9085e9' },
+  Besteira: { icone: '🍫', cor: '#c2255c', corEscura: '#e8598a' },
+  'Rolê': { icone: '🎉', cor: '#c99700', corEscura: '#e0b000' },
+  'Álcool': { icone: '🍺', cor: '#8a2a2a', corEscura: '#d06a5a' },
+  Entretenimento: { icone: '🎬', cor: '#0b8fa3', corEscura: '#2bb3c7' },
   Outros: { icone: '📦', cor: '#8b8a85', corEscura: '#8b8a85' },
   // Ainda não se sabe o que foi: cor de atenção, para chamar a revisão.
   'A definir': { icone: '❔', cor: '#b4570b', corEscura: '#f0a050' },

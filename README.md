@@ -34,7 +34,7 @@ Aparência: Claro, Escuro ou Automático (toque no seu avatar, no canto de cima)
 
 ## Categorias
 
-Refeições, Alimentação geral, Carro, Namorada, Viagens, Outros. Entradas: Salário, Outras entradas.
+Refeições, Alimentação geral, Carro, Namorada, Viagens, Besteira (o que dava pra evitar: doces, salgadinho, refrigerante), Rolê (saídas, festas, bares), Álcool, Entretenimento (cinema, streaming, shows, jogos), Outros e A definir. Entradas: Salário, Outras entradas.
 
 ## Estado atual
 
