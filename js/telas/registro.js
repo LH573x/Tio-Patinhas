@@ -3,7 +3,7 @@ import { CATEGORIAS_GASTO, CATEGORIAS_ENTRADA, METODOS } from '../parser.js';
 import { store } from '../store.js';
 import { $, $$, esc, reais, abrirFolha, confirmar, aviso, lerNumero, numeroParaCampo, ICONES } from '../util.js';
 import { opcoesCartao } from './cartoes.js';
-import { aprenderEstabelecimentos, quemDoRegistro } from '../extrato.js';
+import { aprenderEstabelecimentos, lembrarPorValor, quemDoRegistro } from '../extrato.js';
 
 export function bolinha(categoria, app) {
   return `<span class="bolinha" style="--cor:${app.cor(categoria)}" aria-hidden="true"></span>`;
@@ -102,8 +102,28 @@ export function editarRegistro(r, app) {
             [{ chave: quem.chave, nome: quem.original, item: m.item, categoria: m.categoria }], store.estabelecimentos(),
           )).catch(() => {});
         }
+        // Trocou o nome do banco pelo que foi comprado (ex.: "Cookie do Slack"): lembra "quem recebeu + valor"
+        // para as próximas importações e já corrige as outras iguais que ainda estão com o nome do banco.
+        let iguais = 0;
+        const nomesDoBanco = new Set([quem && quem.original, nomeQuem, novoQuem, r.local].filter(Boolean));
+        const corrigiu = quem && m.item && !nomesDoBanco.has(m.item) && m.categoria !== 'A definir'
+          && (m.item !== r.item || m.categoria !== r.categoria);
+        if (corrigiu) {
+          await store.salvarEstabelecimentos(lembrarPorValor(
+            [{ chave: quem.chave, nome: quem.original, item: m.item, categoria: m.categoria, valor: r.valor }],
+          )).catch(() => {});
+          const outras = store.listar().filter((x) => {
+            if (x.id === r.id || x.tipo !== r.tipo || Math.abs(x.valor - r.valor) > 0.001) return false;
+            const q = quemDoRegistro(x);
+            return q && q.chave === quem.chave && (nomesDoBanco.has(x.item) || x.categoria === 'A definir');
+          });
+          for (const x of outras) await store.atualizar(x.id, { ...x, item: m.item, categoria: m.categoria });
+          iguais = outras.length;
+        }
         fechar();
-        aviso(renomeados > 1 ? `Corrigido. ${renomeados} transações agora aparecem como “${novoQuem || quem.original}”.`
+        aviso(iguais ? `Corrigido. ${iguais === 1 ? 'Outra transação igual' : `Outras ${iguais} transações iguais`} (${reais(r.valor)} para ${quem.original}) também ${iguais === 1 ? 'virou' : 'viraram'} “${m.item}”.`
+          : corrigiu ? `Corrigido. Da próxima vez, ${reais(r.valor)} para ${quem.original} já entra como “${m.item}”.`
+          : renomeados > 1 ? `Corrigido. ${renomeados} transações agora aparecem como “${novoQuem || quem.original}”.`
           : m.categoria !== r.categoria ? `Corrigido. Da próxima vez, “${m.item}” vai para ${m.categoria}.` : 'Corrigido ✓');
         app.render();
       } catch (err) {

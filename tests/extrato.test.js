@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { lerExtrato, decodificar, lerValor, lerData, limparDescricao, prepararImportacao, descritorCartao,
-  ajusteDoExtrato, aprenderEstabelecimentos, conferirSaldo, quemDoRegistro } from '../js/extrato.js';
+  ajusteDoExtrato, aprenderEstabelecimentos, conferirSaldo, quemDoRegistro, chaveValor, lembrarPorValor } from '../js/extrato.js';
 
 const arquivo = (nome) => decodificar(readFileSync(new URL(`./exemplos/${nome}`, import.meta.url)));
 
@@ -226,4 +226,32 @@ test('quemDoRegistro: chave gravada ou o nome no texto do banco', () => {
   assert.deepEqual(quemDoRegistro({ origem: 'extrato', item: 'Lanche', textoOriginal: 'Pix enviado - Maria Souza' }),
     { chave: 'maria souza', original: 'Maria Souza' });
   assert.equal(quemDoRegistro({ origem: 'texto', item: 'Salgado', textoOriginal: 'salgado 8,50 pix' }), null);
+});
+
+test('quem recebeu + valor: lembra o que foi já na próxima importação', () => {
+  const e = lerExtrato(arquivo('inter-historico.csv'));
+  // Você trocou "Bruno Costa" (R$ 6,00) por "Cookie do Slack" em Besteira
+  const lembrar = lembrarPorValor([{ chave: 'bruno costa', nome: 'Bruno Costa', item: 'Cookie do Slack', categoria: 'Besteira', valor: 6 }]);
+  assert.equal(lembrar.length, 1);
+  assert.equal(lembrar[0].chave, chaveValor('bruno costa', 6));
+  const linhas = prepararImportacao(e, [], [], lembrar);
+  assert.equal(linhas[2].item, 'Cookie do Slack');
+  assert.equal(linhas[2].resposta, 'Cookie do Slack');
+  assert.equal(linhas[2].categoria, 'Besteira');
+  assert.equal(linhas[2].automatico, true);
+  // outro valor para a mesma pessoa não é afetado
+  const outro = prepararImportacao(e, [], [], lembrarPorValor([{ chave: 'bruno costa', item: 'Cookie', categoria: 'Besteira', valor: 7 }]));
+  assert.equal(outro[2].item, 'Bruno Costa');
+  assert.equal(outro[2].categoria, 'A definir');
+  // apelido continua valendo junto, e o valor lembrado vence o "o que foi" geral
+  const ambos = prepararImportacao(e, [], [], [
+    { chave: 'bruno costa', apelido: 'Irmão', item: 'Lanche', categoria: 'Refeições', vezes: 5 }, ...lembrar]);
+  assert.equal(ambos[2].item, 'Cookie do Slack');
+  assert.equal(ambos[2].local, 'Irmão');
+});
+
+test('lembrarPorValor ignora o que ainda está "A definir" ou sem item', () => {
+  assert.equal(lembrarPorValor([{ chave: 'x', item: 'Algo', categoria: 'A definir', valor: 5 },
+    { chave: 'x', item: '', categoria: 'Besteira', valor: 5 }, { chave: '', item: 'a', categoria: 'Besteira', valor: 5 }]).length, 0);
+  assert.equal(chaveValor('maria souza', 8), 'maria souza#8.00');
 });
