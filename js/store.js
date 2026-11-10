@@ -70,6 +70,13 @@ async function gravarCompat(fazer) {
   }
 }
 
+// Só alguns campos (para atualizar vários registros de uma vez).
+function paraBancoParcial(campos) {
+  const b = { ...campos };
+  for (const c of colunasFaltando) delete b[c];
+  return b;
+}
+
 function doBanco(row) {
   return {
     id: row.id,
@@ -195,7 +202,7 @@ export const store = {
       cliente.from('caixa_entrada').select('*').order('criado_em', { ascending: false }).limit(30),
       cliente.from('contas_fixas').select('*').order('dia_vencimento'),
       cliente.from('cartoes').select('*').order('criado_em'),
-      cliente.from('estabelecimentos').select('chave, nome, item, categoria, vezes'),
+      cliente.from('estabelecimentos').select('*'),
     ]);
     const registros = [];
     const passo = 1000;
@@ -265,11 +272,36 @@ export const store = {
   async salvarEstabelecimentos(lista) {
     if (!lista.length || this.semEstabelecimentos) return;
     const { error } = await cliente.from('estabelecimentos')
-      .upsert(lista.map((e) => ({ chave: e.chave, nome: e.nome || null, item: e.item, categoria: e.categoria, vezes: e.vezes,
+      .upsert(lista.map((e) => ({ chave: e.chave, nome: e.nome || null, apelido: e.apelido || null, item: e.item || null, categoria: e.categoria || null, vezes: e.vezes || 1,
         atualizado_em: new Date().toISOString() })), { onConflict: 'user_id,chave' });
     if (error) falhar(error);
     const novas = new Map(lista.map((e) => [e.chave, e]));
     cache.estabelecimentos = [...this.estabelecimentos().filter((e) => !novas.has(e.chave)), ...novas.values()];
+    salvarCache();
+  },
+  /**
+   * Dá um nome seu para quem recebeu ("Mãe", "Posto Rodovia X") e aplica em
+   * todos os registros dessa pessoa ou lugar (`ids`); as próximas importações também usam.
+   */
+  async renomearQuem(chave, apelido, ids, original) {
+    const antes = this.estabelecimentos().find((e) => e.chave === chave);
+    await this.salvarEstabelecimentos([{ ...(antes || { chave, nome: original, vezes: 1 }), apelido: apelido || null }]);
+    const novos = new Map();
+    const nome = apelido || original || null;
+    const atualizarLotes = async (lista, campos) => {
+      for (let i = 0; i < lista.length; i += 100) { // em lotes, para o endereço não ficar grande demais
+        const { data, error } = await gravarCompat(() => cliente.from('registros')
+          .update(paraBancoParcial(campos)).in('id', lista.slice(i, i + 100)).select());
+        if (error) falhar(error);
+        for (const row of data) novos.set(row.id, doBanco(row));
+      }
+    };
+    await atualizarLotes(ids, { local: nome, estabelecimento: chave });
+    // Onde o nome do item ainda é o nome antigo (você não disse o que foi), troca também.
+    const antigos = new Set([original, antes && antes.apelido].filter(Boolean).map((t) => t.toLowerCase()));
+    const comNomeAntigo = cache.registros.filter((r) => ids.includes(r.id) && antigos.has(String(r.item).toLowerCase())).map((r) => r.id);
+    if (nome) await atualizarLotes(comNomeAntigo, { item: nome });
+    cache.registros = cache.registros.map((r) => novos.get(r.id) || r);
     salvarCache();
   },
   async atualizar(id, m) {

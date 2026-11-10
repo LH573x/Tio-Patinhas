@@ -347,6 +347,21 @@ function parecidos(a, b) {
   return comum / Math.min(pa.size, pb.size);
 }
 
+/**
+ * Quem recebeu (ou pagou) um registro que veio do extrato.
+ * Retorna { chave, original } ou null se o registro não tem essa informação.
+ * Registros antigos sem a chave gravada: o nome vem do texto do banco
+ * ("Pix enviado - Fulana de Tal") ou do local.
+ */
+export function quemDoRegistro(r) {
+  const texto = String(r.textoOriginal || '');
+  const i = texto.indexOf(' - ');
+  const bruto = i >= 0 ? texto.slice(i + 3) : r.local || null;
+  if (!r.estabelecimento && !(r.origem === 'extrato' && bruto)) return null;
+  const chave = r.estabelecimento || chaveEstabelecimento(bruto);
+  return { chave, original: bruto ? limparDescricao(bruto) : capitalizar(chave) };
+}
+
 /** Gasto do extrato sem pista do que foi: "A definir" (não "Outros"), para revisar depois. */
 function categoriaInicial(texto, tipo, regras) {
   const c = sugerirCategoria(texto, tipo, regras);
@@ -379,12 +394,14 @@ export function prepararImportacao(extrato, existentes, regras = [], estabelecim
     const cartao = descritorCartao(nomeBruto);
     const chave = chaveEstabelecimento(nomeBruto);
     const est = aprendidos.get(chave) || null;
+    // Nome que você deu para essa pessoa ou lugar ("Mãe", "Posto Rodovia X") vale em todas as transações
+    const apelido = est && est.apelido ? est.apelido : null;
     const automatico = Boolean(est && est.vezes >= VEZES_PARA_AUTOMATICO && est.item);
     const linha = {
       selecionado: true,
       tipo: t.tipo,
-      nome, // estabelecimento ou pessoa, como veio do banco
-      item: automatico ? est.item : nome,
+      nome: apelido || nome, // estabelecimento ou pessoa (com o nome que você deu, se deu)
+      item: automatico ? est.item : apelido || nome,
       resposta: automatico ? est.item : '', // "O que foi?"
       automatico,
       sugestao: est && !automatico && est.item ? est.item : null,
@@ -395,7 +412,7 @@ export function prepararImportacao(extrato, existentes, regras = [], estabelecim
       categoria: automatico && est.categoria ? est.categoria : categoriaInicial(`${nome} ${t.descricao}`, t.tipo, regras),
       metodo,
       // Compra no cartão: o estabelecimento vira o local do registro
-      local: metodo === 'Débito' || metodo === 'Crédito' || cartao ? nome : null,
+      local: apelido || (metodo === 'Débito' || metodo === 'Crédito' || cartao ? nome : null),
       estabelecimento: chave,
       ref: t.ref,
       situacao: 'novo',
@@ -468,8 +485,8 @@ export function aprenderEstabelecimentos(confirmadas, estabelecimentos = []) {
     if (!c.chave || !c.item) continue;
     const antes = mudou.get(c.chave) || atual.get(c.chave);
     const igual = antes && normalizar(antes.item) === normalizar(c.item) && antes.categoria === c.categoria;
-    mudou.set(c.chave, { chave: c.chave, nome: c.nome || (antes && antes.nome) || null, item: c.item, categoria: c.categoria,
-      vezes: igual ? antes.vezes + 1 : 1 });
+    mudou.set(c.chave, { chave: c.chave, nome: c.nome || (antes && antes.nome) || null, apelido: (antes && antes.apelido) || null,
+      item: c.item, categoria: c.categoria, vezes: igual ? antes.vezes + 1 : 1 });
   }
   return [...mudou.values()];
 }

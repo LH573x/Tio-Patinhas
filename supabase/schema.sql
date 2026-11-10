@@ -135,6 +135,10 @@ begin
     atualizado_em timestamptz not null default now(),
     unique (user_id, chave)
   );
+  -- Nome que você dá para quem recebeu ("Mãe", "Posto Rodovia X"); vale para todas as transações.
+  alter table public.estabelecimentos add column if not exists apelido text;
+  alter table public.estabelecimentos alter column item drop not null;
+  alter table public.estabelecimentos alter column categoria drop not null;
 
   ---------------------------------------------------------------------------
   -- Segurança: cada pessoa só vê e mexe nos próprios dados.

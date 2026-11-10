@@ -1,7 +1,7 @@
 // Gastos "A definir": vieram do extrato sem você dizer o que foram.
 // Card no Início e uma folha para ir respondendo um por um, quando der tempo.
 import { CATEGORIAS_GASTO, A_DEFINIR, sugerirCategoria } from '../parser.js';
-import { aprenderEstabelecimentos, chaveEstabelecimento } from '../extrato.js';
+import { aprenderEstabelecimentos, chaveEstabelecimento, quemDoRegistro } from '../extrato.js';
 import { store } from '../store.js';
 import { $, $$, esc, reais, abrirFolha, aviso, rotuloDia, ICONES } from '../util.js';
 
@@ -33,7 +33,8 @@ export function ligarADefinir(raiz, app) {
 
 /** Chave do estabelecimento de um registro (a gravada na importação, ou a partir do local/nome). */
 function chaveDoRegistro(r) {
-  return r.estabelecimento || chaveEstabelecimento(r.local || r.item);
+  const quem = quemDoRegistro(r);
+  return quem ? quem.chave : chaveEstabelecimento(r.local || r.item);
 }
 
 /** Folha que mostra um gasto por vez: valor, dia, hora, local e "O que foi?". */
@@ -49,7 +50,7 @@ export function revisarADefinir(app, pulados = new Set()) {
   // O que você já respondeu antes para este mesmo lugar (se houver)
   const est = store.estabelecimentos().find((e) => e.chave === chaveDoRegistro(r));
   const onde = [r.local, r.metodo].filter(Boolean).join(' · ');
-  let categoria = est ? est.categoria : null;
+  let categoria = est && est.categoria ? est.categoria : null;
 
   abrirFolha(`A definir · ${todos.length} ${todos.length === 1 ? 'restante' : 'restantes'}`, `
     <form class="formulario" id="form-definir">
@@ -60,7 +61,7 @@ export function revisarADefinir(app, pulados = new Set()) {
         ${r.textoOriginal ? `<small class="definir-original">${esc(r.textoOriginal.replace(/\s+/g, ' '))}</small>` : ''}
       </div>
       <label class="campo">O que foi?
-        <input name="oque" placeholder="ex.: gasolina, almoço, remédio" autocomplete="off" enterkeyhint="done" value="${esc(est ? est.item : r.local && r.item !== r.local ? r.item : '')}">
+        <input name="oque" placeholder="ex.: gasolina, almoço, remédio" autocomplete="off" enterkeyhint="done" value="${esc(est && est.item ? est.item : r.local && r.item !== r.local ? r.item : '')}">
       </label>
       <div class="chips-filtro chips-categoria" role="radiogroup" aria-label="Categoria">
         ${CATEGORIAS.map((c) => `<button type="button" role="radio" class="chip-filtro ${c === categoria ? 'ativo' : ''}" data-cat="${esc(c)}"
