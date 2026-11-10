@@ -368,6 +368,28 @@ function categoriaInicial(texto, tipo, regras) {
   return tipo === 'gasto' && c === 'Outros' ? A_DEFINIR : c;
 }
 
+/**
+ * Chave de "quem recebeu + valor": o mesmo Pix de R$ 8,00 para a mesma pessoa
+ * é a mesma coisa (ex.: "Cookie do Slack"). Guardada na mesma tabela dos estabelecimentos.
+ */
+export function chaveValor(chave, valor) {
+  return `${chave}#${Number(valor).toFixed(2)}`;
+}
+
+/**
+ * Lembranças por valor a partir do que você confirmou: [{ chave, valor, nome, item, categoria }].
+ * Valem já na próxima importação (não precisam de 3 repetições).
+ */
+export function lembrarPorValor(confirmadas) {
+  const lista = new Map();
+  for (const c of confirmadas) {
+    if (!c.chave || !c.item || !c.categoria || c.categoria === A_DEFINIR || !(c.valor > 0)) continue;
+    const chave = chaveValor(c.chave, c.valor);
+    lista.set(chave, { chave, nome: c.nome || null, item: c.item, categoria: c.categoria, vezes: VEZES_PARA_AUTOMATICO });
+  }
+  return [...lista.values()];
+}
+
 /** Quantas vezes seguidas a mesma resposta precisa aparecer para o app preencher sozinho. */
 export const VEZES_PARA_AUTOMATICO = 3;
 
@@ -394,22 +416,26 @@ export function prepararImportacao(extrato, existentes, regras = [], estabelecim
     const cartao = descritorCartao(nomeBruto);
     const chave = chaveEstabelecimento(nomeBruto);
     const est = aprendidos.get(chave) || null;
+    // Mesmo destino e mesmo valor que você já corrigiu antes: usa direto o que você disse
+    const porValor = aprendidos.get(chaveValor(chave, t.valor));
+    const lembrado = porValor && porValor.item ? porValor : null;
     // Nome que você deu para essa pessoa ou lugar ("Mãe", "Posto Rodovia X") vale em todas as transações
     const apelido = est && est.apelido ? est.apelido : null;
-    const automatico = Boolean(est && est.vezes >= VEZES_PARA_AUTOMATICO && est.item);
+    const automatico = Boolean(lembrado || (est && est.vezes >= VEZES_PARA_AUTOMATICO && est.item));
+    const fonte = lembrado || est;
     const linha = {
       selecionado: true,
       tipo: t.tipo,
       nome: apelido || nome, // estabelecimento ou pessoa (com o nome que você deu, se deu)
-      item: automatico ? est.item : apelido || nome,
-      resposta: automatico ? est.item : '', // "O que foi?"
+      item: automatico ? fonte.item : apelido || nome,
+      resposta: automatico ? fonte.item : '', // "O que foi?"
       automatico,
       sugestao: est && !automatico && est.item ? est.item : null,
       sugestaoCategoria: est && !automatico ? est.categoria : null,
       descricao: t.descricao,
       data: t.data,
       valor: t.valor,
-      categoria: automatico && est.categoria ? est.categoria : categoriaInicial(`${nome} ${t.descricao}`, t.tipo, regras),
+      categoria: automatico && fonte.categoria ? fonte.categoria : categoriaInicial(`${nome} ${t.descricao}`, t.tipo, regras),
       metodo,
       // Compra no cartão: o estabelecimento vira o local do registro
       local: apelido || (metodo === 'Débito' || metodo === 'Crédito' || cartao ? nome : null),

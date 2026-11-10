@@ -1,7 +1,7 @@
 // Envio de cupom (foto) e de extrato (CSV/OFX lido na hora; PDF/print vai
 // para a caixa de entrada que a rotina diária do Claude lê).
 import { CATEGORIAS_GASTO, CATEGORIAS_ENTRADA, METODOS, sugerirCategoria } from '../parser.js';
-import { lerExtrato, decodificar, prepararImportacao, ajusteDoExtrato, aprenderEstabelecimentos, conferirSaldo } from '../extrato.js';
+import { lerExtrato, decodificar, prepararImportacao, ajusteDoExtrato, aprenderEstabelecimentos, lembrarPorValor, conferirSaldo } from '../extrato.js';
 import { store } from '../store.js';
 import { $, $$, esc, reais, abrirFolha, aviso, dataCurta, selo, ICONES } from '../util.js';
 import { bolinha } from './registro.js';
@@ -252,7 +252,7 @@ function revisarImportacao(extrato, nomeArquivo, app) {
         })));
         // O extrato vale mais: o que você já tinha registrado fica com o valor, a data e a forma de pagamento do banco.
         const confirmadas = escolhidas.filter((l) => l.resposta)
-          .map((l) => ({ chave: l.estabelecimento, nome: l.nome, item: l.resposta, categoria: l.categoria }));
+          .map((l) => ({ chave: l.estabelecimento, nome: l.nome, item: l.resposta, categoria: l.categoria, valor: l.valor }));
         let ajustados = 0;
         for (const l of ajustes) {
           const existente = store.listar().find((r) => r.id === l.duplicadoDe);
@@ -260,7 +260,7 @@ function revisarImportacao(extrato, nomeArquivo, app) {
           try {
             await store.atualizar(existente.id, ajusteDoExtrato(existente, l));
             ajustados++;
-            confirmadas.push({ chave: l.estabelecimento, nome: l.nome, item: existente.item, categoria: existente.categoria });
+            confirmadas.push({ chave: l.estabelecimento, nome: l.nome, item: existente.item, categoria: existente.categoria, valor: l.valor });
           } catch { /* segue com os outros */ }
         }
         const regrasNovas = new Map();
@@ -268,7 +268,8 @@ function revisarImportacao(extrato, nomeArquivo, app) {
         // Aprender não pode atrapalhar a importação, que já foi feita.
         await Promise.all([
           ...[...regrasNovas].map(([item, cat]) => store.aprenderRegra(item, cat).catch(() => {})),
-          store.salvarEstabelecimentos(aprenderEstabelecimentos(confirmadas, store.estabelecimentos())).catch(() => {}),
+          store.salvarEstabelecimentos([...aprenderEstabelecimentos(confirmadas, store.estabelecimentos()), ...lembrarPorValor(confirmadas)])
+            .catch(() => {}),
         ]);
         fechar();
         const pulados = escolhidas.length - n;

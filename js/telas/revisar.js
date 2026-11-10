@@ -1,7 +1,7 @@
 // Gastos "A definir": vieram do extrato sem você dizer o que foram.
 // Card no Início e uma folha para ir respondendo um por um, quando der tempo.
 import { CATEGORIAS_GASTO, A_DEFINIR, sugerirCategoria } from '../parser.js';
-import { aprenderEstabelecimentos, chaveEstabelecimento, quemDoRegistro } from '../extrato.js';
+import { aprenderEstabelecimentos, lembrarPorValor, chaveEstabelecimento, quemDoRegistro } from '../extrato.js';
 import { store } from '../store.js';
 import { $, $$, esc, reais, abrirFolha, aviso, rotuloDia, ICONES } from '../util.js';
 
@@ -104,9 +104,10 @@ export function revisarADefinir(app, pulados = new Set()) {
       try {
         await store.atualizar(r.id, { ...r, item: oque || r.item, categoria });
         if (oque) {
-          await store.salvarEstabelecimentos(aprenderEstabelecimentos(
-            [{ chave: chaveDoRegistro(r), nome: r.local || r.item, item: oque, categoria }], store.estabelecimentos(),
-          )).catch(() => {});
+          const confirmada = [{ chave: chaveDoRegistro(r), nome: r.local || r.item, item: oque, categoria, valor: r.valor }];
+          await store.salvarEstabelecimentos([
+            ...aprenderEstabelecimentos(confirmada, store.estabelecimentos()), ...lembrarPorValor(confirmada),
+          ]).catch(() => {});
         }
         app.render();
         revisarADefinir(app, pulados);
