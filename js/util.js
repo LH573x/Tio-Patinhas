@@ -71,7 +71,8 @@ export function rotuloDia(s) {
 export function lerNumero(txt) {
   const s = String(txt || '').trim().replace(/\s|R\$/g, '');
   if (!s) return null;
-  const n = Number(s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s);
+  // "1.200" é mil e duzentos (ponto de milhar), não 1,2
+  const n = Number(s.includes(',') || /^-?\d{1,3}(\.\d{3})+$/.test(s) ? s.replace(/\./g, '').replace(',', '.') : s);
   return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
 }
 

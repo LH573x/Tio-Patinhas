@@ -107,7 +107,11 @@ function dividirLinha(linha, sep) {
 const COLUNAS = {
   data: /^(data|date|dt)(\b|_| )|^data$/,
   valor: /^(valor|amount|quantia|montante)|valor \(r\$\)|^valor/,
+  // "Descrição" vence "Histórico" quando o banco manda as duas (Inter: Histórico = "Pix enviado", Descrição = quem recebeu)
+  descricaoExata: /^descri/,
   descricao: /(descri|title|titulo|historico|estabelecimento|memo|detalhe|lancamento|nome)/,
+  historico: /^(historico|tipo( de)?( lancamento| transacao)?|lancamento)$/,
+  saldo: /^saldo/,
   id: /^(identificador|id|fitid|codigo)$/,
   entrada: /^(credito|entrada|entradas)( \(r\$\))?$/,
   saida: /^(debito|saida|saidas)( \(r\$\))?$/,
@@ -127,12 +131,19 @@ function acharColunas(cabecalho) {
   col.entrada = achar(COLUNAS.entrada);
   col.saida = achar(COLUNAS.saida);
   col.valor = achar(COLUNAS.valor);
-  col.descricao = achar(COLUNAS.descricao);
+  // Coluna que as versões anteriores usavam como descrição (para reconhecer o que já foi importado).
+  col.legado = norm.findIndex((c, idx) => !usado.has(idx) && COLUNAS.descricao.test(c));
+  col.saldo = achar(COLUNAS.saldo);
+  col.descricao = achar(COLUNAS.descricaoExata);
+  if (col.descricao < 0) col.descricao = achar(COLUNAS.descricao);
+  col.historico = achar(COLUNAS.historico);
   return { col, norm };
 }
 
+const chaveTexto = (t) => semAcento(t || '').replace(/\s+/g, ' ');
+
 function lerCSV(texto) {
-  const linhas = texto.replace(/^﻿/, '').split(/\r?\n/).filter((l) => l.trim());
+  const linhas = texto.replace(/^\uFEFF/, '').split(/\r?\n/).filter((l) => l.trim());
   if (!linhas.length) return { formato: 'CSV', cartao: false, banco: '', transacoes: [] };
   // Separador: o que mais aparece na linha de cabeçalho
   let idxCab = 0;
@@ -169,25 +180,44 @@ function lerCSV(texto) {
       else if (sai) valor = -Math.abs(sai);
     }
     if (valor === null || valor === 0) continue;
-    const descricao = col.descricao >= 0 ? c[col.descricao] : '';
+    const nome = col.descricao >= 0 ? c[col.descricao] || '' : '';
+    const historico = col.historico >= 0 ? c[col.historico] || '' : '';
+    const descricao = historico && nome ? `${historico} - ${nome}` : historico || nome;
+    const legado = col.legado >= 0 ? c[col.legado] || '' : descricao;
+    const saldo = col.saldo >= 0 ? lerValor(c[col.saldo]) : null;
     const id = col.id >= 0 ? c[col.id] : '';
-    brutas.push({ data, descricao, valor, id });
+    brutas.push({ data, descricao, nome, legado, valor, saldo, id });
   }
   // Se todos os valores são positivos, é fatura: positivo = gasto.
   const todosPositivos = brutas.length > 0 && brutas.every((b) => b.valor > 0);
   const positivoEhGasto = cartao || todosPositivos;
-  const contagem = new Map();
+  // Contagem separada por tipo de referência: duas transações iguais no mesmo dia viram #1 e #2.
+  const contagens = { antiga: new Map(), nova: new Map() };
+  const numerar = (tipo, base) => {
+    const n = (contagens[tipo].get(base) || 0) + 1;
+    contagens[tipo].set(base, n);
+    return `csv:${base}#${n}`;
+  };
   const transacoes = brutas.map((b) => {
-    const base = `${b.data}|${Math.abs(b.valor).toFixed(2)}|${semAcento(b.descricao).replace(/\s+/g, ' ')}`;
-    const n = (contagem.get(base) || 0) + 1;
-    contagem.set(base, n);
+    const v = Math.abs(b.valor).toFixed(2);
+    // Referência estável: o id do banco; senão data + valor + saldo depois da transação
+    // (não depende de como a descrição é lida); senão data + valor + descrição.
+    let ref;
+    const refsAntigas = [];
+    const antiga = numerar('antiga', `${b.data}|${v}|${chaveTexto(b.legado)}`);
+    if (b.id) ref = `csv:${b.id}`;
+    else if (b.saldo !== null) ref = numerar('nova', `${b.data}|${v}|s${b.saldo.toFixed(2)}`);
+    else ref = numerar('nova', `${b.data}|${v}|${chaveTexto(b.descricao)}`);
+    if (!b.id && antiga !== ref) refsAntigas.push(antiga);
     const gasto = positivoEhGasto ? b.valor > 0 : b.valor < 0;
     return {
       data: b.data,
       descricao: b.descricao,
+      nome: b.nome,
       valor: r2(Math.abs(b.valor)),
       tipo: gasto ? 'gasto' : 'entrada',
-      ref: b.id ? `csv:${b.id}` : `csv:${base}#${n}`,
+      ref,
+      refsAntigas,
     };
   });
   return { formato: 'CSV', cartao: positivoEhGasto, banco: '', transacoes };
@@ -210,7 +240,38 @@ const PREFIXOS = [
   /^(compra|debito|credito|pagto|pag|pix)\b/,
 ];
 
+/**
+ * Descritor de compra no cartão no padrão das maquininhas: 22 letras de nome,
+ * 13 de cidade e o país ("Garagem Cingo         Sao Paulo    Bra").
+ * Retorna { nome, cidade } ou null se o texto não segue esse padrão.
+ */
+export function descritorCartao(txt) {
+  const s = String(txt || '').replace(/\s+$/, '');
+  const m = s.match(/^(.{22})(.{13})(bra|br)$/i);
+  if (!m || !/\S/.test(m[1])) return null;
+  let nome = m[1].trim();
+  let cidade = m[2].trim();
+  // Nome maior que 22 letras invade a cidade ("Uber *trip Help.usp")
+  if (cidade && !/\s/.test(m[2].trim()) && cidade.length <= 3 && /\S$/.test(m[1])) {
+    nome = `${m[1]}${cidade}`.trim();
+    cidade = '';
+  }
+  return { nome: nome.replace(/\s+/g, ' '), cidade: cidade.replace(/\s+/g, ' ') };
+}
+
+function capitalizar(s) {
+  let t = s.toLowerCase().replace(/(^|\s)(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
+  t = t.replace(/\b(De|Da|Do|Das|Dos|E|Em|No|Na)\b/g, (w) => w.toLowerCase());
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
 export function limparDescricao(desc) {
+  const cartao = descritorCartao(desc);
+  if (cartao) {
+    // "Uber Uber *trip" -> "Uber *trip"; "Drogasil 1536" -> "Drogasil" (número da loja)
+    const nome = cartao.nome.replace(/^(\S+)\s+\1\b/i, '$1').replace(/\s+\d{2,6}$/, '');
+    return capitalizar(nome || cartao.nome).slice(0, 60);
+  }
   let s = String(desc || '').replace(/\s+/g, ' ').trim();
   const norm = semAcento(s);
   for (const re of PREFIXOS) {
@@ -228,9 +289,18 @@ export function limparDescricao(desc) {
     .replace(/\s+/g, ' ')
     .trim();
   if (!s) s = String(desc || '').trim() || 'Transação';
-  s = s.toLowerCase().replace(/(^|\s)(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
-  s = s.replace(/\b(De|Da|Do|Das|Dos|E|Em|No|Na)\b/g, (w) => w.toLowerCase());
-  return s.slice(0, 60);
+  return capitalizar(s).slice(0, 60);
+}
+
+/**
+ * Chave do estabelecimento (ou da pessoa do Pix) para reconhecer a mesma
+ * origem em extratos diferentes: sem acento, minúsculas, espaços únicos.
+ * Mantém o código da loja ("posto shell 1234"), que diferencia unidades.
+ */
+export function chaveEstabelecimento(nome) {
+  const cartao = descritorCartao(nome);
+  const base = cartao ? cartao.nome : String(nome || '');
+  return semAcento(base).replace(/["“”]/g, '').replace(/\s+/g, ' ').trim();
 }
 
 export function metodoDaDescricao(desc, cartao) {
@@ -260,16 +330,35 @@ function diasEntre(a, b) {
   return Math.abs((Date.parse(a) - Date.parse(b)) / 864e5);
 }
 
+const familiaRef = (ref) => (ref ? String(ref).split(':')[0] : null);
+// Referências que vêm de uma linha de extrato (cada linha tem a sua).
+const FAMILIAS_EXTRATO = new Set(['csv', 'ofx']);
+
+/** Quanto dois nomes se parecem (0 a 1), por palavras em comum. */
+function parecidos(a, b) {
+  const palavras = (t) => new Set(semAcento(t || '').replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter((p) => p.length > 2));
+  const pa = palavras(a);
+  const pb = palavras(b);
+  if (!pa.size || !pb.size) return 0;
+  let comum = 0;
+  for (const p of pa) if (pb.has(p)) comum++;
+  return comum / Math.min(pa.size, pb.size);
+}
+
 /**
  * Prepara a lista para o usuário revisar antes de importar.
- * Marca o que já foi importado, o que parece já ter sido registrado à mão e o
- * que normalmente não é gasto (fatura, investimento...).
+ * Marca o que já foi importado, o que parece já ter sido registrado (à mão,
+ * por foto de cupom ou por outro formato de extrato) e o que normalmente não
+ * é gasto (fatura, investimento...).
  */
 export function prepararImportacao(extrato, existentes, regras = []) {
   const refs = new Set(existentes.map((r) => r.ref_externa || r.refExterna).filter(Boolean));
   const usados = new Set();
   return extrato.transacoes.map((t) => {
-    const item = limparDescricao(t.descricao);
+    const nome = t.nome || t.descricao;
+    const item = limparDescricao(nome);
+    const metodo = t.tipo === 'gasto' ? metodoDaDescricao(t.descricao, extrato.cartao) : null;
+    const cartao = descritorCartao(nome);
     const linha = {
       selecionado: true,
       tipo: t.tipo,
@@ -278,20 +367,32 @@ export function prepararImportacao(extrato, existentes, regras = []) {
       data: t.data,
       valor: t.valor,
       categoria: sugerirCategoria(`${item} ${t.descricao}`, t.tipo, regras),
-      metodo: t.tipo === 'gasto' ? metodoDaDescricao(t.descricao, extrato.cartao) : null,
+      metodo,
+      // Compra no cartão: o estabelecimento vira o local do registro
+      local: metodo === 'Débito' || metodo === 'Crédito' || cartao ? item : null,
+      estabelecimento: chaveEstabelecimento(nome),
       ref: t.ref,
       situacao: 'novo',
       aviso: null,
     };
-    if (t.ref && refs.has(t.ref)) {
+    if ((t.ref && refs.has(t.ref)) || (t.refsAntigas || []).some((r) => refs.has(r))) {
       return { ...linha, selecionado: false, situacao: 'importado', aviso: 'Já importado antes' };
     }
-    const igual = existentes.find((r) => !usados.has(r.id) && r.tipo === t.tipo && !(r.ref_externa || r.refExterna)
-      && Math.abs(r.valor - t.valor) < 0.01 && diasEntre(r.data, t.data) <= 3);
-    if (igual) {
+    // Mesmo valor e data próxima. Um registro que veio de outra linha do mesmo
+    // tipo de extrato não conta: se fosse a mesma transação, a referência seria igual.
+    const familia = familiaRef(t.ref);
+    const candidatos = existentes.filter((r) => {
+      if (usados.has(r.id) || r.tipo !== t.tipo || Math.abs(r.valor - t.valor) >= 0.01 || diasEntre(r.data, t.data) > 3) return false;
+      const fr = familiaRef(r.ref_externa || r.refExterna);
+      return !(fr && FAMILIAS_EXTRATO.has(fr) && fr === familia);
+    });
+    if (candidatos.length) {
+      const nota = (r) => diasEntre(r.data, t.data) - parecidos(`${r.item} ${r.local || ''}`, `${item} ${t.descricao}`);
+      const igual = candidatos.sort((x, y) => nota(x) - nota(y))[0];
       usados.add(igual.id);
       const [, m, d] = igual.data.split('-');
-      return { ...linha, selecionado: false, situacao: 'duplicado', aviso: `Parece ser "${igual.item}" (${d}/${m}), que você já registrou` };
+      return { ...linha, selecionado: false, situacao: 'duplicado', duplicadoDe: igual.id,
+        aviso: `Parece ser "${igual.item}" (${d}/${m}), que você já registrou` };
     }
     if (extrato.cartao && t.tipo === 'entrada' && /pagamento/.test(semAcento(t.descricao))) {
       return { ...linha, selecionado: false, situacao: 'ignorar', aviso: 'Pagamento da fatura: as compras do cartão já contam' };

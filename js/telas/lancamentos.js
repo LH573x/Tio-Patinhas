@@ -6,7 +6,7 @@ import { $, $$, esc, reais, rotuloDia, ICONES } from '../util.js';
 import { linhaRegistro, ligarRegistros } from './registro.js';
 import { enviarExtrato } from './anexos.js';
 
-const estado = { busca: '', categoria: '' };
+const estado = { busca: '', categoria: '', timer: null };
 
 export function seletorMes(mes, id = 'mes') {
   const atual = mesDe(iso(new Date()));
@@ -71,13 +71,18 @@ export function telaLancamentos(raiz, app) {
   ligarRegistros(raiz, app);
   $('#btn-importar', raiz).addEventListener('click', () => enviarExtrato(app));
   const busca = $('#busca', raiz);
+  // Espera uma pausa na digitação antes de redesenhar a lista (não trava a cada letra).
   busca.addEventListener('input', () => {
-    estado.busca = busca.value;
-    const pos = busca.selectionStart;
-    telaLancamentos(raiz, app);
-    const nova = $('#busca', raiz);
-    nova.focus();
-    nova.setSelectionRange(pos, pos);
+    clearTimeout(estado.timer);
+    estado.timer = setTimeout(() => {
+      if (!busca.isConnected) return;
+      estado.busca = busca.value;
+      const pos = busca.selectionStart;
+      telaLancamentos(raiz, app);
+      const nova = $('#busca', raiz);
+      nova.focus();
+      nova.setSelectionRange(pos, pos);
+    }, 180);
   });
   $$('.chip-filtro', raiz).forEach((b) => b.addEventListener('click', () => {
     estado.categoria = b.dataset.cat;

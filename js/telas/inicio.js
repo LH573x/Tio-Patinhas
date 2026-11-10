@@ -21,8 +21,9 @@ function opcoes(lista, atual) {
 function cardMes() {
   const hoje = new Date();
   const mes = mesDe(iso(hoje));
-  const r = resumoMes(store.listar(), mes, hoje, { contas: store.contas() });
-  const limites = statusLimites(store.listar(), store.orcamentos(), mes, hoje);
+  const registros = store.listar();
+  const r = resumoMes(registros, mes, hoje, { previsao: false });
+  const limites = statusLimites(registros, store.orcamentos(), mes, hoje);
   const planejado = limites.reduce((s, l) => s + l.limite, 0);
   const sobra = planejado - r.gasto;
   return `

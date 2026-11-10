@@ -126,7 +126,7 @@ export function telaMetas(raiz, app) {
   const mes = mesDe(iso(hoje));
   const registros = store.listar();
   const status = new Map(statusLimites(registros, store.orcamentos(), mes, hoje).map((s) => [s.categoria, s]));
-  const r = resumoMes(registros, mes, hoje);
+  const r = resumoMes(registros, mes, hoje, { previsao: false });
   const gastoCat = new Map(r.categorias.map((c) => [c.categoria, c.valor]));
   const metas = store.metas();
   const comLimite = CATEGORIAS_GASTO.filter((c) => status.has(c));

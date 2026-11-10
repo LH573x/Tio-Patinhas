@@ -185,17 +185,8 @@ export const store = {
 
   // ---------- Dados ----------
   async carregar() {
-    const registros = [];
-    const passo = 1000;
-    for (let de = 0; ; de += passo) {
-      const { data, error } = await cliente
-        .from('registros').select('*').order('data', { ascending: false }).range(de, de + passo - 1);
-      if (error) falhar(error);
-      if (de === 0 && data.length) for (const c of COLUNAS_NOVAS) if (!(c in data[0])) colunasFaltando.add(c);
-      registros.push(...data.map(doBanco));
-      if (data.length < passo) break;
-    }
-    const [regras, orcamentos, metas, caixa, contas, cartoes] = await Promise.all([
+    // As tabelas pequenas vão junto com a primeira página de registros (uma ida ao servidor, não duas).
+    const outras = Promise.all([
       cliente.from('regras').select('termo, categoria').order('criado_em', { ascending: false }),
       cliente.from('orcamentos').select('id, categoria, limite'),
       cliente.from('metas').select('*').order('criado_em'),
@@ -203,6 +194,17 @@ export const store = {
       cliente.from('contas_fixas').select('*').order('dia_vencimento'),
       cliente.from('cartoes').select('*').order('criado_em'),
     ]);
+    const registros = [];
+    const passo = 1000;
+    for (let de = 0; ; de += passo) {
+      const { data, error } = await cliente
+        .from('registros').select('*').order('data', { ascending: false }).order('id').range(de, de + passo - 1);
+      if (error) falhar(error);
+      if (de === 0 && data.length) for (const c of COLUNAS_NOVAS) if (!(c in data[0])) colunasFaltando.add(c);
+      registros.push(...data.map(doBanco));
+      if (data.length < passo) break;
+    }
+    const [regras, orcamentos, metas, caixa, contas, cartoes] = await outras;
     if (regras.error) falhar(regras.error);
     cache = {
       registros,
@@ -229,6 +231,26 @@ export const store = {
     if (error) falhar(error);
     cache.registros.push(...data.map(doBanco));
     salvarCache();
+  },
+  /**
+   * Grava registros de extrato sem repetir: pula referências que já existem.
+   * Se outro aparelho importou o mesmo extrato nesse meio-tempo, recarrega e tenta de novo.
+   * Retorna quantos foram gravados.
+   */
+  async importar(lancamentos) {
+    for (let tentativa = 0; ; tentativa++) {
+      const refs = new Set(cache.registros.map((r) => r.refExterna).filter(Boolean));
+      const novos = lancamentos.filter((l) => !l.refExterna || !refs.has(l.refExterna));
+      if (!novos.length) return 0;
+      const { data, error } = await gravarCompat(() => cliente.from('registros').insert(novos.map(paraBancoCompat)).select());
+      if (!error) {
+        cache.registros.push(...data.map(doBanco));
+        salvarCache();
+        return data.length;
+      }
+      if (tentativa > 0 || !/duplicate key|23505/i.test(`${error.code} ${error.message}`)) falhar(error);
+      await this.carregar();
+    }
   },
   async atualizar(id, m) {
     const { data, error } = await gravarCompat(() => cliente.from('registros').update(paraBancoCompat(m)).eq('id', id).select().single());

@@ -1,0 +1,12 @@
+ Extrato Conta Corrente 
+Conta ;12345678
+Período ;01/11/2026 a 09/11/2026
+Saldo ;80,00
+
+Data Lançamento;Histórico;Descrição;Valor;Saldo
+07/11/2026;Pix recebido;Ana Souza Lima;10,00;80,00
+06/11/2026;Compra no débito;Posto Shell 1234      Sao Paulo    Bra;-200,00;70,00
+05/11/2026;Pix enviado ;Bruno Costa;-6,00;270,00
+05/11/2026;Pix enviado ;Bruno Costa;-6,00;276,00
+04/11/2026;Compra no débito;Uber Uber *trip Help.usp           Bra;-30,58;282,00
+03/11/2026;Compra no débito;Drogasil 1536         Sao Paulo    Bra;-60,48;312,58
