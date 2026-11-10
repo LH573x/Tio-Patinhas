@@ -55,7 +55,7 @@ function editarConta(conta, app) {
         <label class="campo">Dia do vencimento<input name="dia" inputmode="numeric" required placeholder="1 a 31" value="${c.dia_vencimento || ''}"></label>
       </div>
       <div class="dupla">
-        <label class="campo">Categoria<select name="categoria">${opcoes(CATEGORIAS_GASTO, c.categoria)}</select></label>
+        <label class="campo">Categoria<select name="categoria">${opcoes(CATEGORIAS_GASTO.filter((x) => x !== 'A definir'), c.categoria)}</select></label>
         <label class="campo">Pagamento<select name="metodo"><option value="">—</option>${opcoes(METODOS, c.metodo)}</select></label>
       </div>
       <p class="dica">Se o valor muda todo mês (como a luz), coloque uma média. Na hora de pagar dá pra ajustar.</p>

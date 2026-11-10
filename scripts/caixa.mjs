@@ -12,7 +12,7 @@ import path from 'node:path';
 
 const URL_BASE = process.env.SUPABASE_URL || 'https://senrhuxfjomqppluwgsx.supabase.co';
 const CHAVE = process.env.SUPABASE_SECRET_KEY || '';
-const CATEGORIAS_GASTO = ['Refeições', 'Alimentação geral', 'Carro', 'Namorada', 'Viagens', 'Outros'];
+const CATEGORIAS_GASTO = ['Refeições', 'Alimentação geral', 'Carro', 'Namorada', 'Viagens', 'Outros', 'A definir'];
 const CATEGORIAS_ENTRADA = ['Salário', 'Outras entradas'];
 const METODOS = ['Pix', 'Débito', 'Crédito', 'Dinheiro', 'Vale'];
 

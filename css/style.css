@@ -459,6 +459,21 @@ main.com-campo { padding-bottom: calc(var(--barra-abas) + 120px + env(safe-area-
 .imp-aviso.ignorar { color: var(--texto-3); }
 .imp-linha .registro-valor { padding-top: 8px; font-size: 14px; }
 .imp-resumo { flex: 1; font-size: 13px; color: var(--texto-2); }
+.imp-nome { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 15px; font-weight: 500; padding-top: 8px; overflow-wrap: anywhere; }
+.imp-oque { width: 100%; min-height: 36px; padding: 0 10px; font: inherit; font-size: 14px; color: var(--texto); background: var(--superficie-2);
+  border: 1px solid transparent; border-radius: 10px; }
+.imp-oque:focus { outline: none; border-color: var(--destaque); }
+.imp-oque::placeholder { color: var(--texto-3); }
+.imp-sugestoes { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip-sugestao, .chip-resposta { min-height: 32px; padding: 0 12px; border-radius: 999px; font: inherit; font-size: 13px; cursor: pointer;
+  border: 1px solid var(--borda); background: transparent; color: var(--texto); }
+.chip-sugestao::before { content: "↺ "; color: var(--texto-3); }
+.chip-resposta.ativo { background: var(--destaque); border-color: var(--destaque); color: #fff; }
+.imp-pergunta { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--atencao); }
+.imp-pergunta small { color: var(--texto-3); font-size: 12px; }
+.imp-pergunta-botoes { display: flex; gap: 6px; flex-wrap: wrap; }
+.imp-alerta { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--atencao); margin: 8px 0; }
+.imp-alerta svg { flex: none; width: 18px; height: 18px; }
 
 /* ---------------------------------------------------------------- Toast */
 .toast {
@@ -486,3 +501,12 @@ main.com-campo { padding-bottom: calc(var(--barra-abas) + 120px + env(safe-area-
 .sec-titulo + .dica svg, .folha-corpo .dica svg { width: 16px; height: 16px; vertical-align: -3px; color: var(--ok); }
 .marcar-icone { width: 24px; height: 24px; flex-shrink: 0; display: grid; place-items: center; color: var(--texto-3); }
 .marcar-icone svg { width: 20px; height: 20px; }
+.imp-nome .selo { color: var(--destaque); font-size: 12px; }
+
+/* A definir: card do Início e folha de revisão um por um */
+.a-definir .linha-abrir b { color: var(--atencao); font-weight: 600; }
+.definir-topo { display: flex; flex-direction: column; gap: 4px; padding: 4px 0 8px; }
+.definir-valor { font-size: 28px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.definir-nome { font-size: 17px; font-weight: 500; }
+.definir-original { color: var(--texto-3); font-size: 12px; overflow-wrap: anywhere; }
+.chips-categoria { flex-wrap: wrap; overflow: visible; margin: 4px 0 0; padding: 0; }

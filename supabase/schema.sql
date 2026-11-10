@@ -29,6 +29,8 @@ begin
   -- Onde foi a compra e a que horas (opcionais).
   alter table public.registros add column if not exists local text;
   alter table public.registros add column if not exists hora time;
+  -- Estabelecimento (ou pessoa do Pix) como veio do extrato, para aprender o que foi.
+  alter table public.registros add column if not exists estabelecimento text;
 
   ---------------------------------------------------------------------------
   -- Regras aprendidas: "posto shell" => "Carro".
@@ -119,6 +121,22 @@ begin
   alter table public.registros add column if not exists cartao_id uuid references public.cartoes (id) on delete set null;
 
   ---------------------------------------------------------------------------
+  -- O que foi em cada estabelecimento do extrato ("garagem cingo" => Estacionamento).
+  -- Depois de 3 respostas iguais seguidas, a importação preenche sozinha.
+  ---------------------------------------------------------------------------
+  create table if not exists public.estabelecimentos (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+    chave text not null,
+    nome text,
+    item text not null,
+    categoria text not null,
+    vezes integer not null default 1 check (vezes >= 1),
+    atualizado_em timestamptz not null default now(),
+    unique (user_id, chave)
+  );
+
+  ---------------------------------------------------------------------------
   -- Segurança: cada pessoa só vê e mexe nos próprios dados.
   ---------------------------------------------------------------------------
   alter table public.registros enable row level security;
@@ -128,6 +146,7 @@ begin
   alter table public.caixa_entrada enable row level security;
   alter table public.contas_fixas enable row level security;
   alter table public.cartoes enable row level security;
+  alter table public.estabelecimentos enable row level security;
 
   drop policy if exists "registros do dono" on public.registros;
   create policy "registros do dono" on public.registros for all to authenticated
@@ -155,6 +174,10 @@ begin
 
   drop policy if exists "cartoes do dono" on public.cartoes;
   create policy "cartoes do dono" on public.cartoes for all to authenticated
+    using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+
+  drop policy if exists "estabelecimentos do dono" on public.estabelecimentos;
+  create policy "estabelecimentos do dono" on public.estabelecimentos for all to authenticated
     using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
   ---------------------------------------------------------------------------

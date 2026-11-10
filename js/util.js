@@ -83,7 +83,7 @@ export function numeroParaCampo(v) {
 /** Faixa que pede para rodar o schema.sql de novo quando o banco está desatualizado. */
 export function avisoBanco(ativo) {
   if (!ativo) return '';
-  return `<div class="aviso-banco">${ICONES.alerta}<span>Falta atualizar o banco pra usar todas as novidades (contas fixas, cartões, limites, metas, fotos, local e horário):
+  return `<div class="aviso-banco">${ICONES.alerta}<span>Falta atualizar o banco pra usar todas as novidades (contas fixas, cartões, limites, metas, fotos, local e horário, aprender estabelecimentos do extrato):
     rode de novo o arquivo <b>schema.sql</b> no SQL Editor do Supabase, com “Primary Database” selecionado.</span></div>`;
 }
 
