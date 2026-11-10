@@ -1,7 +1,8 @@
 // Envio de cupom (foto) e de extrato (CSV/OFX lido na hora; PDF/print vai
 // para a caixa de entrada que a rotina diária do Claude lê).
 import { CATEGORIAS_GASTO, CATEGORIAS_ENTRADA, METODOS, sugerirCategoria } from '../parser.js';
-import { lerExtrato, decodificar, prepararImportacao, ajusteDoExtrato, aprenderEstabelecimentos, lembrarPorValor, conferirSaldo } from '../extrato.js';
+import { lerExtrato, decodificar, prepararImportacao, ajusteDoExtrato, aprenderEstabelecimentos, conferirSaldo } from '../extrato.js';
+import { paraImportar } from './lembrancas.js';
 import { store } from '../store.js';
 import { $, $$, esc, reais, abrirFolha, aviso, dataCurta, selo, ICONES } from '../util.js';
 import { bolinha } from './registro.js';
@@ -105,7 +106,7 @@ const vaiAjustar = (l) => !l.selecionado && l.duplicadoDe
 
 function revisarImportacao(extrato, nomeArquivo, app) {
   const regras = store.regras();
-  const linhas = prepararImportacao(extrato, store.listar(), regras, store.estabelecimentos());
+  const linhas = prepararImportacao(extrato, store.listar(), regras, paraImportar());
   const datas = linhas.map((l) => l.data).sort();
   const furos = conferirSaldo(extrato.transacoes);
 
@@ -252,7 +253,7 @@ function revisarImportacao(extrato, nomeArquivo, app) {
         })));
         // O extrato vale mais: o que você já tinha registrado fica com o valor, a data e a forma de pagamento do banco.
         const confirmadas = escolhidas.filter((l) => l.resposta)
-          .map((l) => ({ chave: l.estabelecimento, nome: l.nome, item: l.resposta, categoria: l.categoria, valor: l.valor }));
+          .map((l) => ({ chave: l.estabelecimento, nome: l.nome, item: l.resposta, categoria: l.categoria }));
         let ajustados = 0;
         for (const l of ajustes) {
           const existente = store.listar().find((r) => r.id === l.duplicadoDe);
@@ -260,7 +261,7 @@ function revisarImportacao(extrato, nomeArquivo, app) {
           try {
             await store.atualizar(existente.id, ajusteDoExtrato(existente, l));
             ajustados++;
-            confirmadas.push({ chave: l.estabelecimento, nome: l.nome, item: existente.item, categoria: existente.categoria, valor: l.valor });
+            confirmadas.push({ chave: l.estabelecimento, nome: l.nome, item: existente.item, categoria: existente.categoria });
           } catch { /* segue com os outros */ }
         }
         const regrasNovas = new Map();
@@ -268,7 +269,7 @@ function revisarImportacao(extrato, nomeArquivo, app) {
         // Aprender não pode atrapalhar a importação, que já foi feita.
         await Promise.all([
           ...[...regrasNovas].map(([item, cat]) => store.aprenderRegra(item, cat).catch(() => {})),
-          store.salvarEstabelecimentos([...aprenderEstabelecimentos(confirmadas, store.estabelecimentos()), ...lembrarPorValor(confirmadas)])
+          store.salvarEstabelecimentos(aprenderEstabelecimentos(confirmadas, store.estabelecimentos()))
             .catch(() => {}),
         ]);
         fechar();

@@ -2,6 +2,7 @@
 // Card no Início e uma folha para ir respondendo um por um, quando der tempo.
 import { CATEGORIAS_GASTO, A_DEFINIR, sugerirCategoria } from '../parser.js';
 import { aprenderEstabelecimentos, lembrarPorValor, chaveEstabelecimento, quemDoRegistro } from '../extrato.js';
+import { lembrarLigado } from './lembrancas.js';
 import { store } from '../store.js';
 import { $, $$, esc, reais, abrirFolha, aviso, rotuloDia, ICONES } from '../util.js';
 
@@ -51,6 +52,8 @@ export function revisarADefinir(app, pulados = new Set()) {
   const est = store.estabelecimentos().find((e) => e.chave === chaveDoRegistro(r));
   const onde = [r.local, r.metodo].filter(Boolean).join(' · ');
   let categoria = est && est.categoria ? est.categoria : null;
+  const quem = quemDoRegistro(r);
+  const nomeQuem = quem ? (est && est.apelido) || r.local || quem.original : null;
 
   abrirFolha(`A definir · ${todos.length} ${todos.length === 1 ? 'restante' : 'restantes'}`, `
     <form class="formulario" id="form-definir">
@@ -67,6 +70,10 @@ export function revisarADefinir(app, pulados = new Set()) {
         ${CATEGORIAS.map((c) => `<button type="button" role="radio" class="chip-filtro ${c === categoria ? 'ativo' : ''}" data-cat="${esc(c)}"
           aria-checked="${c === categoria}" style="--cor:${app.cor(c)}"><i></i>${esc(c)}</button>`).join('')}
       </div>
+      ${quem && lembrarLigado() ? `
+        <label class="caixinha"><input type="checkbox" name="sempre">
+          <span>Todo ${r.tipo === 'entrada' ? 'valor' : 'pagamento'} de ${reais(r.valor)} ${r.tipo === 'entrada' ? 'de' : 'para'} ${esc(nomeQuem)} é isso
+          <small>Os próximos iguais do extrato já entram assim</small></span></label>` : ''}
       <div class="acoes-folha">
         <button type="button" class="btn secundario" id="pular">Pular</button>
         <button type="submit" class="btn primario">${fila.length > 1 ? 'Salvar e próximo' : 'Salvar'}</button>
@@ -105,8 +112,9 @@ export function revisarADefinir(app, pulados = new Set()) {
         await store.atualizar(r.id, { ...r, item: oque || r.item, categoria });
         if (oque) {
           const confirmada = [{ chave: chaveDoRegistro(r), nome: r.local || r.item, item: oque, categoria, valor: r.valor }];
+          const sempre = $('input[name=sempre]', folha)?.checked;
           await store.salvarEstabelecimentos([
-            ...aprenderEstabelecimentos(confirmada, store.estabelecimentos()), ...lembrarPorValor(confirmada),
+            ...aprenderEstabelecimentos(confirmada, store.estabelecimentos()), ...(sempre ? lembrarPorValor(confirmada) : []),
           ]).catch(() => {});
         }
         app.render();
