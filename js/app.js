@@ -155,7 +155,7 @@ function ajudaInstalar() {
       <li>Abra <b>lh573x.github.io/Tio-Patinhas</b> no <b>Chrome</b>.</li>
       <li>Toque no menu <b>⋮</b> (canto de cima, à direita).</li>
       <li>Toque em <b>Instalar app</b>. Se só aparecer “Adicionar à tela inicial”, toque nele e depois em <b>Instalar</b>.</li>
-      <li>Abra pelo novo ícone (moeda dourada) na tela inicial.</li>
+      <li>Abra pelo novo ícone (o Tio Patinhas de cartola, no fundo dourado) na tela inicial.</li>
     </ol>
     <p class="dica">Se aparecer um ícone antigo que não abre, segure em cima dele e toque em <b>Desinstalar</b> ou <b>Remover</b>.</p>`;
 }

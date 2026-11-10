@@ -1,0 +1,59 @@
+// O Tio Patinhas do app: um pato idoso e econômico, de cartola, óculos redondos e gravata-borboleta.
+// Desenho original (SVG), com três humores para os conselhos: normal, feliz e alerta.
+
+const TINTA = '#26221d';
+
+const OLHOS = {
+  // Olhar sábio, de pálpebras meio baixas.
+  normal: `
+    <ellipse cx="84" cy="108" rx="7.5" ry="9" fill="#fff"/><ellipse cx="116" cy="108" rx="7.5" ry="9" fill="#fff"/>
+    <circle cx="85.5" cy="109.5" r="4.4" fill="${TINTA}"/><circle cx="114.5" cy="109.5" r="4.4" fill="${TINTA}"/>
+    <circle cx="87" cy="108" r="1.4" fill="#fff"/><circle cx="116" cy="108" r="1.4" fill="#fff"/>
+    <path d="M76.2 105.5C76.5 96 91.5 96 91.8 105.5c-4.6-2.4-11-2.4-15.6 0zM108.2 105.5c.3-9.5 15.3-9.5 15.6 0-4.6-2.4-11-2.4-15.6 0z" fill="#e9e6dd"/>
+    <path d="M76.4 105.3c4.6-2.4 10.8-2.4 15.2 0M108.4 105.3c4.6-2.4 10.8-2.4 15.2 0" stroke="${TINTA}" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+    <path d="M73 92c5-3.6 11-4.4 17-2M127 92c-5-3.6-11-4.4-17-2" stroke="#8d8a83" stroke-width="3.6" fill="none" stroke-linecap="round"/>`,
+  // Sorrindo de olhos fechados.
+  feliz: `
+    <path d="M78 110c3-4.6 9-4.6 12 0M110 110c3-4.6 9-4.6 12 0" stroke="${TINTA}" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+    <path d="M73 89c5-4.4 11-5.2 17-2.4M127 89c-5-4.4-11-5.2-17-2.4" stroke="#8d8a83" stroke-width="3.6" fill="none" stroke-linecap="round"/>`,
+  // Olhos arregalados e sobrancelhas preocupadas.
+  alerta: `
+    <ellipse cx="84" cy="108" rx="7.5" ry="9.5" fill="#fff"/><ellipse cx="116" cy="108" rx="7.5" ry="9.5" fill="#fff"/>
+    <circle cx="84" cy="108.5" r="3.4" fill="${TINTA}"/><circle cx="116" cy="108.5" r="3.4" fill="${TINTA}"/>
+    <path d="M73 94c6-1 12-3.4 16-7.4M127 94c-6-1-12-3.4-16-7.4" stroke="#8d8a83" stroke-width="3.6" fill="none" stroke-linecap="round"/>`,
+};
+
+const BOCA = {
+  normal: 'M86 137c8 3.4 20 3.4 28 0',
+  feliz: 'M84 135.5c8 5.4 24 5.4 32 0',
+  alerta: 'M89 139c7-1.6 15-1.6 22 0',
+};
+
+/** SVG do mascote. `humor`: normal | feliz | alerta. */
+export function mascote({ humor = 'normal', titulo = 'Tio Patinhas' } = {}) {
+  const h = OLHOS[humor] ? humor : 'normal';
+  return `<svg class="mascote" viewBox="14 18 172 183" role="img" aria-label="${titulo}" xmlns="http://www.w3.org/2000/svg">
+  <g stroke="${TINTA}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M34 201c3-28 28-43 66-43s63 15 66 43z" fill="#0f6e4f"/>
+    <path d="M80 160l20 26 20-26c-6-1.6-13-2.4-20-2.4s-14 .8-20 2.4z" fill="#fff"/>
+    <path d="M100 171l-13-7v15zM100 171l13-7v15z" fill="#e8b84a"/>
+    <path d="M100 162c-29 0-50-20-50-48 0-29 22-50 50-50s50 21 50 50c0 28-21 48-50 48z" fill="#fbfaf6"/>
+    <path d="M82 142c3 9 10 13 18 13s15-4 18-13z" fill="#d9822b"/>
+    <path d="M71 133c0-8 13-13 29-13s29 5 29 13c0 7-12 12-29 12s-29-5-29-12z" fill="#f4a63f"/>
+  </g>
+  <path d="M128 176c6 6 14 8 22 6" stroke="#e8b84a" stroke-width="3" fill="none" stroke-linecap="round" stroke-dasharray="0.1 5.2"/>
+  <path d="${BOCA[h]}" stroke="${TINTA}" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <ellipse cx="93" cy="128" rx="1.8" ry="1.3" fill="${TINTA}"/><ellipse cx="107" cy="128" rx="1.8" ry="1.3" fill="${TINTA}"/>
+  ${OLHOS[h]}
+  <g fill="none" stroke="#c4922a" stroke-width="3" stroke-linecap="round">
+    <circle cx="84" cy="109" r="12.5"/><circle cx="116" cy="109" r="12.5"/>
+    <path d="M96.5 106.5c2.3-1.6 4.7-1.6 7 0M71.5 106l-20-3.5M128.5 106l20-3.5"/>
+  </g>
+  <g transform="rotate(-7 100 72)" stroke="${TINTA}" stroke-width="3" stroke-linejoin="round">
+    <path d="M68 70l3.5-46c.4-5 56.6-5 57 0l3.5 46z" fill="#2b2824"/>
+    <path d="M69.3 53h61.4l1.3 17h-64z" fill="#0f6e4f"/>
+    <ellipse cx="100" cy="73" rx="56" ry="8.5" fill="#2b2824"/>
+    <path d="M78 30v18" stroke="#46423c" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>`;
+}
