@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { lerExtrato, decodificar, lerValor, lerData, limparDescricao, prepararImportacao } from '../js/extrato.js';
+import { lerExtrato, decodificar, lerValor, lerData, limparDescricao, prepararImportacao, descritorCartao } from '../js/extrato.js';
 
 const arquivo = (nome) => decodificar(readFileSync(new URL(`./exemplos/${nome}`, import.meta.url)));
 
@@ -98,4 +98,56 @@ test('limparDescricao', () => {
   assert.equal(limparDescricao('COMPRA NO DEBITO - SUPERMERCADO EXTRA'), 'Supermercado Extra');
   assert.equal(limparDescricao('Pix enviado: "Cinema Kinoplex"'), 'Cinema Kinoplex');
   assert.equal(limparDescricao('UBER *TRIP'), 'Uber *trip');
+});
+
+test('Inter com Histórico e Descrição: nome de quem recebeu e do estabelecimento', () => {
+  const e = lerExtrato(arquivo('inter-historico.csv'));
+  assert.equal(e.transacoes.length, 6);
+  const linhas = prepararImportacao(e, []);
+  assert.equal(linhas[0].item, 'Ana Souza Lima');
+  assert.equal(linhas[0].tipo, 'entrada');
+  assert.equal(linhas[1].item, 'Posto Shell');
+  assert.equal(linhas[1].local, 'Posto Shell');
+  assert.equal(linhas[1].estabelecimento, 'posto shell 1234');
+  assert.equal(linhas[1].metodo, 'Débito');
+  assert.equal(linhas[1].categoria, 'Carro');
+  assert.equal(linhas[2].item, 'Bruno Costa');
+  assert.equal(linhas[2].metodo, 'Pix');
+  assert.equal(linhas[2].local, null);
+  assert.equal(linhas[4].item, 'Uber *trip Help.usp');
+  assert.equal(linhas[5].item, 'Drogasil');
+  // dois Pix iguais no mesmo dia continuam sendo duas transações
+  assert.equal(new Set(e.transacoes.map((t) => t.ref)).size, 6);
+  assert.match(e.transacoes[1].ref, /\|s70\.00#1$/);
+});
+
+test('reconhece o que foi importado pela versão anterior (referência antiga)', () => {
+  const e = lerExtrato(arquivo('inter-historico.csv'));
+  const existentes = [{ id: '1', tipo: 'gasto', item: 'Compra no Débito', valor: 200, data: '2026-11-06',
+    refExterna: 'csv:2026-11-06|200.00|compra no debito#1' }];
+  const linhas = prepararImportacao(e, existentes);
+  assert.equal(linhas[1].situacao, 'importado');
+  assert.equal(linhas.filter((l) => l.situacao === 'importado').length, 1);
+});
+
+test('não duplica o que veio de foto de cupom ou de outro formato de extrato', () => {
+  const e = lerExtrato(arquivo('inter-historico.csv'));
+  const existentes = [
+    { id: 'c', tipo: 'gasto', item: 'Gasolina', local: 'Posto Shell', valor: 200, data: '2026-11-05', refExterna: 'caixa:abc:0' },
+    { id: 'o', tipo: 'gasto', item: 'Drogasil', valor: 60.48, data: '2026-11-03', refExterna: 'ofx:999:x1' },
+    // outra linha do mesmo tipo de extrato: é outra transação, não a mesma
+    { id: 'x', tipo: 'gasto', item: 'Bruno Costa', valor: 6, data: '2026-11-05', refExterna: 'csv:2026-11-01|6.00|s1.00#1' },
+  ];
+  const linhas = prepararImportacao(e, existentes);
+  assert.equal(linhas[1].situacao, 'duplicado');
+  assert.equal(linhas[1].duplicadoDe, 'c');
+  assert.equal(linhas[5].situacao, 'duplicado');
+  assert.equal(linhas[2].situacao, 'novo');
+  assert.equal(linhas[3].situacao, 'novo');
+});
+
+test('descritorCartao separa nome e cidade', () => {
+  assert.deepEqual(descritorCartao('Garagem Cingo         Sao Paulo    Bra'), { nome: 'Garagem Cingo', cidade: 'Sao Paulo' });
+  assert.deepEqual(descritorCartao('Newmania              Sao Sebastiaobra'), { nome: 'Newmania', cidade: 'Sao Sebastiao' });
+  assert.equal(descritorCartao('Padaria Pão Quente'), null);
 });

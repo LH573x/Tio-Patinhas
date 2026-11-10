@@ -1,5 +1,5 @@
 // Service worker: deixa o app abrir rápido e funcionar offline.
-const VERSAO = 'tp-v4.0';
+const VERSAO = 'tp-v4.1';
 const ARQUIVOS = [
   './', './index.html', './css/style.css', './manifest.webmanifest',
   './js/app.js', './js/config.js', './js/store.js', './js/parser.js', './js/analise.js', './js/extrato.js',
@@ -21,16 +21,34 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// Rede primeiro (pega atualizações), cache se estiver offline.
+// Arquivos que nunca mudam no mesmo endereço (biblioteca com versão no nome, ícones): direto do cache.
+const FIXOS = /\/js\/vendor\/|\/icons\//;
+
+function guardar(req, resp) {
+  if (resp && resp.ok) {
+    const copia = resp.clone();
+    caches.open(VERSAO).then((c) => c.put(req, copia));
+  }
+  return resp;
+}
+
+// O resto: rede primeiro (pega atualizações), mas se a rede demorar mais de
+// 2,5 s (sinal fraco) abre com a cópia guardada e atualiza em segundo plano.
 self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
-  e.respondWith(
-    fetch(e.request)
-      .then((r) => {
-        const copia = r.clone();
-        caches.open(VERSAO).then((c) => c.put(e.request, copia));
-        return r;
-      })
-      .catch(() => caches.match(e.request).then((r) => r || caches.match('./index.html'))),
-  );
+  const req = e.request;
+  if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
+  if (FIXOS.test(new URL(req.url).pathname)) {
+    e.respondWith(caches.match(req).then((r) => r || fetch(req).then((resp) => guardar(req, resp))));
+    return;
+  }
+  const rede = fetch(req).then((resp) => guardar(req, resp));
+  e.waitUntil(rede.catch(() => {}));
+  e.respondWith(new Promise((resolve) => {
+    let respondeu = false;
+    const responder = (r) => { if (!respondeu && r) { respondeu = true; resolve(r); } };
+    const doCache = () => caches.match(req).then((r) => r || (req.mode === 'navigate' ? caches.match('./index.html') : null));
+    const timer = setTimeout(() => doCache().then(responder), 2500);
+    rede.then((r) => { clearTimeout(timer); responder(r); })
+      .catch(() => { clearTimeout(timer); doCache().then((r) => responder(r || Response.error())); });
+  }));
 });

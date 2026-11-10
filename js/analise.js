@@ -84,7 +84,7 @@ export function porLocal(registros, mes, hoje) {
  * Resumo de um mês. Se for o mês atual, inclui a projeção até o fim do mês
  * e compara com o mês anterior até o mesmo dia (comparação justa).
  */
-export function resumoMes(registros, mes, hoje, { contas = [] } = {}) {
+export function resumoMes(registros, mes, hoje, { contas = [], previsao = true } = {}) {
   const hojeISO = iso(hoje);
   const mesAtual = mesDe(hojeISO);
   const emAndamento = mes === mesAtual;
@@ -104,7 +104,7 @@ export function resumoMes(registros, mes, hoje, { contas = [] } = {}) {
     saldo: r2(e - g),
     dia,
     diasNoMes: total,
-    projecao: emAndamento && dia > 0 ? previsaoGastos(registros, contas, hoje) : g,
+    projecao: previsao && emAndamento && dia > 0 ? previsaoGastos(registros, contas, hoje) : g,
     anteriorMesmoPeriodo: gAnteriorMesmoPeriodo,
     anteriorTotal: gAnteriorTotal,
     variacao: gAnteriorMesmoPeriodo > 0 ? (g - gAnteriorMesmoPeriodo) / gAnteriorMesmoPeriodo : null,
@@ -254,7 +254,7 @@ export function historicoMeses(registros, mes, n = 6, hoje = null) {
  * estado: 'ok' | 'atencao' (passou de 80% ou a projeção passa do limite) | 'estourou'
  */
 export function statusLimites(registros, orcamentos, mes, hoje) {
-  const r = resumoMes(registros, mes, hoje);
+  const r = resumoMes(registros, mes, hoje, { previsao: false });
   const gastoCat = new Map(r.categorias.map((c) => [c.categoria, c.valor]));
   return orcamentos
     .filter((o) => o.limite > 0)

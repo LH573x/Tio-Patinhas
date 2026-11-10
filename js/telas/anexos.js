@@ -168,13 +168,14 @@ function revisarImportacao(extrato, nomeArquivo, app) {
       try {
         const aprendidas = new Map();
         escolhidas.filter((l) => l.categoriaManual).forEach((l) => aprendidas.set(l.item, l.categoria));
-        for (const [item, cat] of aprendidas) await store.aprenderRegra(item, cat);
-        await store.adicionar(escolhidas.map((l) => ({
+        await Promise.all([...aprendidas].map(([item, cat]) => store.aprenderRegra(item, cat)));
+        const n = await store.importar(escolhidas.map((l) => ({
           tipo: l.tipo, item: l.item, valor: l.valor, metodo: l.metodo, categoria: l.categoria, data: l.data,
-          origem: 'extrato', textoOriginal: l.descricao, refExterna: l.ref,
+          local: l.local, origem: 'extrato', textoOriginal: l.descricao, refExterna: l.ref,
         })));
         fechar();
-        aviso(`${escolhidas.length} ${escolhidas.length === 1 ? 'registro importado' : 'registros importados'} ✓`);
+        const pulados = escolhidas.length - n;
+        aviso(`${n} ${n === 1 ? 'registro importado' : 'registros importados'} ✓${pulados ? ` (${pulados} já estavam lá)` : ''}`);
         app.render();
       } catch (err) {
         botao.disabled = false;
