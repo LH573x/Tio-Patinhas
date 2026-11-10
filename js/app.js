@@ -236,11 +236,16 @@ const telaCheiaPossivel = () => /Android/i.test(navigator.userAgent)
   && window.matchMedia('(display-mode: standalone)').matches
   && document.fullscreenEnabled;
 
+// O pedido vai logo depois do toque (setTimeout) para não gastar a permissão de quem precisa dela
+// no mesmo toque, como o seletor de foto/arquivo.
 function pedirTelaCheia() {
   if (!telaCheiaPossivel() || document.fullscreenElement) return;
-  document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => { /* tenta no próximo toque */ });
+  setTimeout(() => {
+    if (document.fullscreenElement) return;
+    document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => { /* tenta no próximo toque */ });
+  }, 0);
 }
-for (const ev of ['click', 'touchend']) document.addEventListener(ev, pedirTelaCheia, { capture: true, passive: true });
+document.addEventListener('click', pedirTelaCheia, true);
 
 // ---------------------------------------------------------------- Login
 function mostrarApp(logado) {
