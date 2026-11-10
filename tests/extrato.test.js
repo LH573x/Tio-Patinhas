@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { lerExtrato, decodificar, lerValor, lerData, limparDescricao, prepararImportacao, descritorCartao,
-  ajusteDoExtrato, aprenderEstabelecimentos, conferirSaldo, quemDoRegistro, chaveValor, lembrarPorValor } from '../js/extrato.js';
+  ajusteDoExtrato, aprenderEstabelecimentos, conferirSaldo, quemDoRegistro, chaveValor, lembrarPorValor, gastosParecidos } from '../js/extrato.js';
 
 const arquivo = (nome) => decodificar(readFileSync(new URL(`./exemplos/${nome}`, import.meta.url)));
 
@@ -254,4 +254,26 @@ test('lembrarPorValor ignora o que ainda está "A definir" ou sem item', () => {
   assert.equal(lembrarPorValor([{ chave: 'x', item: 'Algo', categoria: 'A definir', valor: 5 },
     { chave: 'x', item: '', categoria: 'Besteira', valor: 5 }, { chave: '', item: 'a', categoria: 'Besteira', valor: 5 }]).length, 0);
   assert.equal(chaveValor('maria souza', 8), 'maria souza#8.00');
+});
+
+test('gastosParecidos: mesmo lugar vem marcado, nome parecido vem para conferir', () => {
+  const g = (id, local, data, extra = {}) => ({ id, tipo: 'gasto', categoria: 'A definir', item: local, local, valor: 10, data, ...extra });
+  const r = g('a', 'Posto Shell 1234', '2026-11-05');
+  const lista = [
+    r,
+    g('b', 'Posto Shell 5678', '2026-11-01'),
+    g('c', 'Posto Shell 1234', '2026-11-03'),
+    g('d', 'Posto Ipiranga', '2026-11-04'),
+    g('e', 'Padaria Real', '2026-11-04'),
+    g('f', 'Posto Shell', '2026-11-02', { tipo: 'entrada' }),
+  ];
+  const achados = gastosParecidos(r, lista).map((p) => [p.registro.id, p.certeza]);
+  assert.deepEqual(achados, [['c', true], ['b', true], ['d', false]]);
+});
+
+test('gastosParecidos: Pix para a mesma pessoa pela chave gravada', () => {
+  const pix = (id, valor) => ({ id, tipo: 'gasto', categoria: 'A definir', item: 'Fulana', local: 'Fulana', valor, data: '2026-11-01',
+    origem: 'extrato', estabelecimento: 'fulana de tal', textoOriginal: 'Pix enviado - Fulana de Tal' });
+  const achados = gastosParecidos(pix('a', 8), [pix('a', 8), pix('b', 8), pix('c', 25)]);
+  assert.deepEqual(achados.map((p) => [p.registro.id, p.certeza]), [['b', true], ['c', true]]);
 });

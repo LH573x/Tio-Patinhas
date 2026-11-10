@@ -362,6 +362,37 @@ export function quemDoRegistro(r) {
   return { chave, original: bruto ? limparDescricao(bruto) : capitalizar(chave) };
 }
 
+/** Chave do estabelecimento de um registro (a gravada na importação, ou a partir do local/nome). */
+export function chaveDoRegistro(r) {
+  const quem = quemDoRegistro(r);
+  return quem ? quem.chave : chaveEstabelecimento(r.local || r.item);
+}
+
+// Nome para comparar: sem acento, sem pontuação e sem o número da loja no fim.
+const nomeComparavel = (r) => semAcento(String(r.local || r.item || ''))
+  .replace(/[^a-z0-9 ]/g, ' ').replace(/(\s+\d+)+\s*$/, '').replace(/\s+/g, ' ').trim();
+
+/**
+ * Outros gastos "A definir" que parecem ser a mesma coisa que `r`, para definir
+ * todos de uma vez. Retorna [{ registro, certeza }]:
+ * - certeza true: mesmo lugar ou pessoa (mesma chave ou mesmo nome) — já vem marcado;
+ * - certeza false: só o nome parecido (palavras em comum) — vem desmarcado, para conferir.
+ * Os certos primeiro; dentro de cada grupo, os mais recentes primeiro.
+ */
+export function gastosParecidos(r, candidatos) {
+  const chave = chaveDoRegistro(r);
+  const nome = nomeComparavel(r);
+  const achados = [];
+  for (const x of candidatos) {
+    if (x.id === r.id || x.tipo !== r.tipo) continue;
+    const nx = nomeComparavel(x);
+    if ((chave && chaveDoRegistro(x) === chave) || (nome && nx === nome)) achados.push({ registro: x, certeza: true });
+    else if (parecidos(r.local || r.item, x.local || x.item) >= 0.5) achados.push({ registro: x, certeza: false });
+  }
+  return achados.sort((a, b) => (b.certeza - a.certeza) || b.registro.data.localeCompare(a.registro.data)
+    || (b.registro.hora || '').localeCompare(a.registro.hora || ''));
+}
+
 /** Gasto do extrato sem pista do que foi: "A definir" (não "Outros"), para revisar depois. */
 function categoriaInicial(texto, tipo, regras) {
   const c = sugerirCategoria(texto, tipo, regras);
