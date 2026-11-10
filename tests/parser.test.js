@@ -94,15 +94,40 @@ test('cartão pelo nome: vira crédito e sai do item e do local', () => {
   assert.equal(r.cartaoId, null);
 });
 
-test('categorias novas: Besteira, Rolê, Álcool e Entretenimento', () => {
+test('categorias novas: Besteira, Rolê (com bebida) e Entretenimento', () => {
   const cat = (f) => interpretar(f).categoria;
   assert.equal(cat('chocolate 5 pix'), 'Besteira');
   assert.equal(cat('refri 6'), 'Besteira');
-  assert.equal(cat('cerveja 12'), 'Álcool');
+  assert.equal(cat('cerveja 12'), 'Rolê');
+  assert.equal(cat('chopp com a galera 45'), 'Rolê');
   assert.equal(cat('balada 120'), 'Rolê');
   assert.equal(cat('bar com amigos 80'), 'Rolê');
   assert.equal(cat('cinema 40'), 'Entretenimento');
   assert.equal(cat('show 200 crédito'), 'Entretenimento');
   assert.equal(cat('alcool 100'), 'Carro'); // combustível
   assert.equal(cat('pizza 60'), 'Refeições');
+});
+
+test('entradas: Caixa 2 VR, Caixa 2 e Poker', () => {
+  const r = (f) => interpretar(f, { hoje });
+  assert.deepEqual(pick(r('caixa 2 300')), { tipo: 'entrada', valor: 300, categoria: 'Caixa 2', item: 'Caixa 2', metodo: null });
+  assert.deepEqual(pick(r('caixa 2 vr 450')), { tipo: 'entrada', valor: 450, categoria: 'Caixa 2 VR', item: 'Caixa 2 vr', metodo: null });
+  assert.deepEqual(pick(r('recebi 300 de caixa 2 pix')), { tipo: 'entrada', valor: 300, categoria: 'Caixa 2', item: 'Caixa 2', metodo: 'Pix' });
+  assert.equal(r('caixa dois 500').categoria, 'Caixa 2');
+  assert.deepEqual(pick(r('ganhei 200 no poker')), { tipo: 'entrada', valor: 200, categoria: 'Poker', item: 'Poker', metodo: null });
+  assert.equal(r('poker 150').tipo, 'entrada');
+  assert.equal(r('recebi salário 3500').categoria, 'Salário');
+  assert.equal(r('vr 30 almoço').metodo, 'Vale'); // "vr" sozinho continua sendo vale
+});
+
+function pick(x) {
+  return { tipo: x.tipo, valor: x.valor, categoria: x.categoria, item: x.item, metodo: x.metodo };
+}
+
+test('categoria antiga "Álcool" vira "Rolê", inclusive em regras aprendidas', async () => {
+  const { categoriaAtual, sugerirCategoria, CATEGORIAS_GASTO } = await import('../js/parser.js');
+  assert.equal(categoriaAtual('Álcool'), 'Rolê');
+  assert.equal(categoriaAtual('Carro'), 'Carro');
+  assert.ok(!CATEGORIAS_GASTO.includes('Álcool'));
+  assert.equal(sugerirCategoria('bar do zé', 'gasto', [{ termo: 'bar do ze', categoria: 'Álcool' }]), 'Rolê');
 });

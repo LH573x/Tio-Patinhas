@@ -1,6 +1,7 @@
 // Armazenamento dos registros no Supabase (com login).
 // Mantém uma cópia local para o app abrir rápido, mesmo sem internet.
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
+import { categoriaAtual } from './parser.js';
 
 const CHAVE_CACHE = 'tp.cache.v2';
 // Chaves da versão anterior, que guardava tudo só no aparelho.
@@ -77,6 +78,18 @@ function paraBancoParcial(campos) {
   return b;
 }
 
+/** Limites por categoria; se "Álcool" e "Rolê" tinham limite, somam no "Rolê". */
+function juntarLimites(linhas) {
+  const porCat = new Map();
+  for (const o of linhas) {
+    const categoria = categoriaAtual(o.categoria);
+    const antes = porCat.get(categoria);
+    if (antes) antes.limite += Number(o.limite);
+    else porCat.set(categoria, { ...o, categoria, limite: Number(o.limite) });
+  }
+  return [...porCat.values()];
+}
+
 function doBanco(row) {
   return {
     id: row.id,
@@ -84,7 +97,7 @@ function doBanco(row) {
     item: row.item,
     valor: Number(row.valor),
     metodo: row.metodo,
-    categoria: row.categoria,
+    categoria: categoriaAtual(row.categoria),
     data: row.data,
     parcela: row.parcela,
     origem: row.origem,
@@ -335,14 +348,16 @@ export const store = {
     if (regras.error) falhar(regras.error);
     cache = {
       registros,
-      regras: regras.data,
+      // Categorias antigas ("Álcool") já aparecem com o nome novo, mesmo antes do SQL de migração.
+      regras: regras.data.map((r) => ({ ...r, categoria: categoriaAtual(r.categoria) })),
       // Tabelas novas: se o banco ainda não foi atualizado, o app continua funcionando.
-      orcamentos: orcamentos.error ? [] : orcamentos.data.map((o) => ({ ...o, limite: Number(o.limite) })),
+      orcamentos: orcamentos.error ? [] : juntarLimites(orcamentos.data),
       metas: metas.error ? [] : metas.data.map(numerosMeta),
       caixa: caixa.error ? [] : caixa.data,
-      contas: contas.error ? [] : contas.data.map(numerosConta),
+      contas: contas.error ? [] : contas.data.map((c) => numerosConta({ ...c, categoria: categoriaAtual(c.categoria) })),
       cartoes: cartoes.error ? [] : cartoes.data.map(numerosCartao),
-      estabelecimentos: estabelecimentos.error ? [] : estabelecimentos.data.map((e) => ({ ...e, vezes: Number(e.vezes) })),
+      estabelecimentos: estabelecimentos.error ? [] : estabelecimentos.data.map((e) => ({ ...e,
+        categoria: e.categoria && categoriaAtual(e.categoria), vezes: Number(e.vezes) })),
     };
     this.semEstabelecimentos = Boolean(estabelecimentos.error);
     this.bancoDesatualizado = Boolean(orcamentos.error || metas.error || caixa.error || contas.error || cartoes.error || estabelecimentos.error || colunasFaltando.size);

@@ -8,8 +8,7 @@ export const CATEGORIAS_GASTO = [
   'Namorada',
   'Viagens',
   'Besteira', // evitável: doces, salgadinho, refrigerante...
-  'Rolê',
-  'Álcool',
+  'Rolê', // saídas, festas, bares e bebida
   'Entretenimento',
   'Outros',
   'A definir', // gasto do extrato que você ainda não disse o que foi
@@ -18,7 +17,15 @@ export const CATEGORIAS_GASTO = [
 /** Categoria dos gastos que ainda precisam ser revisados. */
 export const A_DEFINIR = 'A definir';
 
-export const CATEGORIAS_ENTRADA = ['Salário', 'Outras entradas'];
+export const CATEGORIAS_ENTRADA = ['Salário', 'Caixa 2 VR', 'Caixa 2', 'Poker', 'Outras entradas'];
+
+// Categorias que deixaram de existir -> para onde foram.
+export const CATEGORIAS_ANTIGAS = { 'Álcool': 'Rolê' };
+
+/** Nome atual da categoria (registros antigos com "Álcool" passam a ser "Rolê"). */
+export function categoriaAtual(nome) {
+  return CATEGORIAS_ANTIGAS[nome] || nome;
+}
 
 export const METODOS = ['Pix', 'Débito', 'Crédito', 'Dinheiro', 'Vale'];
 
@@ -32,10 +39,11 @@ const PALAVRAS_CATEGORIA = [
   ['Carro', ['gasolina', 'etanol', 'alcool', 'diesel', 'combustivel', 'abasteci', 'abastecer', 'posto', 'oleo', 'pneu',
     'mecanico', 'oficina', 'estacionamento', 'estacionei', 'pedagio', 'lava jato', 'lavagem', 'ipva', 'seguro do carro',
     'licenciamento', 'multa', 'revisao', 'carro', 'zona azul']],
-  ['Álcool', ['cerveja', 'breja', 'chopp', 'chope', 'vinho', 'drink', 'drinque', 'caipirinha', 'caipiroska', 'vodka', 'whisky',
-    'gin', 'cachaca', 'tequila', 'bebida alcoolica', 'heineken', 'skol', 'brahma', 'budweiser', 'corona', 'amstel']],
   ['Rolê', ['role', 'rolezinho', 'balada', 'festa', 'boate', 'bar', 'barzinho', 'boteco', 'happy hour', 'pub', 'saidinha',
-    'open bar', 'karaoke']],
+    'open bar', 'karaoke',
+    // bebida também é Rolê
+    'cerveja', 'breja', 'chopp', 'chope', 'vinho', 'drink', 'drinque', 'caipirinha', 'caipiroska', 'vodka', 'whisky',
+    'gin', 'cachaca', 'tequila', 'bebida alcoolica', 'heineken', 'skol', 'brahma', 'budweiser', 'corona', 'amstel']],
   ['Entretenimento', ['cinema', 'filme', 'netflix', 'spotify', 'prime video', 'disney', 'hbo', 'hbo max', 'youtube premium', 'streaming',
     'show', 'teatro', 'ingresso', 'jogo', 'game', 'steam', 'playstation', 'xbox', 'nintendo', 'museu', 'parque', 'boliche']],
   ['Besteira', ['besteira', 'doce', 'chocolate', 'bala', 'chiclete', 'bombom', 'brigadeiro', 'salgadinho', 'doritos', 'ruffles',
@@ -48,7 +56,15 @@ const PALAVRAS_CATEGORIA = [
     'lanchonete', 'esfiha', 'sushi', 'pao de queijo', 'refeicao', 'quentinha']],
 ];
 
-const PALAVRAS_ENTRADA = ['recebi', 'salario', 'entrada', 'ganhei', 'reembolso', 'rendimento', 'pagamento recebido', 'caiu'];
+// Entradas com nome próprio. A ordem importa: "caixa 2 vr" antes de "caixa 2".
+const PALAVRAS_CATEGORIA_ENTRADA = [
+  ['Salário', ['salario']],
+  ['Caixa 2 VR', ['caixa 2 vr', 'caixa dois vr', 'cx 2 vr', 'cx2 vr', 'caixa2 vr']],
+  ['Caixa 2', ['caixa 2', 'caixa dois', 'cx 2', 'cx2', 'caixa2']],
+  ['Poker', ['poker', 'pokerstars', 'ggpoker']],
+];
+
+const PALAVRAS_ENTRADA = ['caixa 2', 'caixa dois', 'cx 2', 'cx2', 'caixa2', 'poker', 'recebi', 'salario', 'entrada', 'ganhei', 'reembolso', 'rendimento', 'pagamento recebido', 'caiu'];
 
 const PALAVRAS_METODO = [
   ['Pix', ['pix']],
@@ -105,9 +121,14 @@ export function somarMeses(iso, meses) {
 export function sugerirCategoria(texto, tipo = 'gasto', regras = []) {
   const norm = semAcento(texto);
   for (const r of regras) {
-    if (r.termo && contemPalavra(norm, semAcento(r.termo))) return r.categoria;
+    if (r.termo && contemPalavra(norm, semAcento(r.termo))) return categoriaAtual(r.categoria);
   }
-  if (tipo === 'entrada') return contemPalavra(norm, 'salario') ? 'Salário' : 'Outras entradas';
+  if (tipo === 'entrada') {
+    for (const [categoria, palavras] of PALAVRAS_CATEGORIA_ENTRADA) {
+      if (palavras.some((p) => contemPalavra(norm, p))) return categoria;
+    }
+    return 'Outras entradas';
+  }
   for (const [categoria, palavras] of PALAVRAS_CATEGORIA) {
     if (palavras.some((p) => contemPalavra(norm, p))) return categoria;
   }
@@ -131,11 +152,20 @@ export function interpretar(frase, { hoje = new Date(), regras = [], cartoes = [
   // Tipo
   const tipo = PALAVRAS_ENTRADA.some((p) => contemPalavra(norm, p)) ? 'entrada' : 'gasto';
 
+  const tokens = textoOriginal.split(/\s+/);
+
+  // "caixa 2" / "caixa 2 vr": o 2 é parte do nome (não é o valor) e o "vr" também (não é o método)
+  const caixa2Vr = /(^|[^a-z0-9])(caixa ?(2|dois)|cx ?2) vr($|[^a-z0-9])/.test(norm);
+  const ehDoisDoCaixa = (i) => /^2$/.test(tokens[i]) && ['caixa', 'cx'].includes(semAcento(tokens[i - 1] || ''));
+  const ehVrDoCaixa = (i) => caixa2Vr && semAcento(tokens[i] || '') === 'vr'
+    && (ehDoisDoCaixa(i - 1) || ['cx2', 'caixa2', 'dois'].includes(semAcento(tokens[i - 1] || '')));
+
   // Método de pagamento (o termo mais longo vence: "cartao de credito" antes de "cartao")
   let metodo = null;
   let termoMetodo = null;
   for (const [nome, termos] of PALAVRAS_METODO) {
     for (const t of termos) {
+      if (caixa2Vr && t === 'vr') continue;
       if (contemPalavra(norm, t) && (!termoMetodo || t.length > termoMetodo.length)) {
         metodo = nome;
         termoMetodo = t;
@@ -150,13 +180,13 @@ export function interpretar(frase, { hoje = new Date(), regras = [], cartoes = [
   if (parcelas > 1 && !metodo) metodo = 'Crédito';
 
   // Valor: tokens numéricos, ignorando o número das parcelas
-  const tokens = textoOriginal.split(/\s+/);
   const candidatos = [];
   tokens.forEach((tok, i) => {
     const limpo = tok.replace(/[;:!?]+$/, '').replace(/^r\$$/i, '');
     if (!/^(r\$)?\d[\d.,]*$/i.test(limpo)) return;
     if (mParc && /x$/i.test(tok)) return;
     if (mParc && semAcento(tokens[i + 1] || '') === 'vezes') return;
+    if (ehDoisDoCaixa(i)) return;
     const n = paraNumero(limpo.replace(/[.,]$/, ''));
     if (n === null) return;
     const prev = semAcento(tokens[i - 1] || '');
@@ -234,6 +264,7 @@ export function interpretar(frase, { hoje = new Date(), regras = [], cartoes = [
   const palavrasItem = tokens.filter((tok, i) => {
     if (escolhido && i === escolhido.i) return false;
     if (usados.has(i)) return false;
+    if (ehDoisDoCaixa(i) || ehVrDoCaixa(i)) return true;
     const n = semAcento(tok).replace(/[.,;:!?]+$/, '');
     if (!n) return false;
     if (PALAVRAS_DESCARTE.has(n)) return false;
@@ -245,14 +276,16 @@ export function interpretar(frase, { hoje = new Date(), regras = [], cartoes = [
   });
   // remove artefatos de métodos compostos ("cartao de credito" -> "cartao" já saiu)
   let item = palavrasItem.join(' ').trim();
-  if (tipo === 'entrada') item = item.replace(/^(recebi|ganhei|caiu)\s+/i, '').trim();
-  if (!item) item = tipo === 'entrada' ? 'Entrada' : 'Gasto';
-  item = item.charAt(0).toUpperCase() + item.slice(1);
+  if (tipo === 'entrada') item = item.replace(/^(recebi|ganhei|caiu)(\s+|$)/i, '').replace(/^(de|do|da|no|na)\s+/i, '').trim();
 
   // A categoria vem primeiro do item ("coxinha no posto" é Refeições, não Carro);
   // se o item não disser nada, olha a frase inteira.
   let categoria = sugerirCategoria(item, tipo, regras);
   if (categoria === 'Outros' || categoria === 'Outras entradas') categoria = sugerirCategoria(textoOriginal, tipo, regras);
+
+  // "ganhei 200 no poker": sem nome sobrando, a entrada leva o nome da categoria
+  if (!item) item = tipo === 'entrada' ? (categoria !== 'Outras entradas' ? categoria : 'Entrada') : 'Gasto';
+  item = item.charAt(0).toUpperCase() + item.slice(1);
   const valorParcela = valor !== null && parcelas > 1 ? Math.round((valor / parcelas) * 100) / 100 : valor;
 
   return {

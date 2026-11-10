@@ -36,7 +36,7 @@ Aparência: Claro, Escuro ou Automático (toque no seu avatar, no canto de cima)
 
 ## Categorias
 
-Refeições, Alimentação geral, Carro, Namorada, Viagens, Besteira (o que dava pra evitar: doces, salgadinho, refrigerante), Rolê (saídas, festas, bares), Álcool, Entretenimento (cinema, streaming, shows, jogos), Outros e A definir. Entradas: Salário, Outras entradas.
+Refeições, Alimentação geral, Carro, Namorada, Viagens, Besteira (o que dava pra evitar: doces, salgadinho, refrigerante), Rolê (saídas, festas, bares e bebida), Entretenimento (cinema, streaming, shows, jogos), Outros e A definir. Entradas: Salário, Caixa 2 VR, Caixa 2, Poker, Outras entradas.
 
 ## Estado atual
 
