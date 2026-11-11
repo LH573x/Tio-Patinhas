@@ -11,6 +11,8 @@ import { opcoesCartao, cartaoPadrao } from './cartoes.js';
 import { avisoLimite } from './alertas.js';
 import { cardADefinir, ligarADefinir } from './revisar.js';
 import { cardAssessor, ligarAssessor } from './assessor.js';
+import { ligarSugestoes } from './sugestoes.js';
+import { itemDaFrase } from '../itens.js';
 
 let previa = null;
 let salvando = false;
@@ -80,6 +82,7 @@ function cardRegistrar() {
     <section class="registrar">
       <form id="form-registro" autocomplete="off">
         <div id="previa" class="previa" hidden></div>
+        <div id="sugestoes-frase"></div>
         <div class="linha-entrada">
           <input id="frase" type="text" enterkeyhint="send" placeholder="O que você comprou?" aria-label="O que você comprou? Ex.: salgado 8,50 pix" value="${esc(textoDigitado)}">
           <button type="button" class="icone-btn" id="btn-cupom" aria-label="Foto do cupom">${ICONES.camera}</button>
@@ -232,6 +235,7 @@ async function registrar(app) {
 export function telaInicio(raiz, app) {
   raiz.innerHTML = [avisoBanco(store.bancoDesatualizado), cardMes(), cardAssessor(), cardPagar(), cardADefinir(), cardCaixa(app), cardHoje(app), cardRegistrar()].join('');
   $('#frase', raiz).addEventListener('input', renderPrevia);
+  ligarSugestoes($('#frase', raiz), { caixa: $('#sugestoes-frase', raiz), parte: itemDaFrase });
   $('#form-registro', raiz).addEventListener('submit', (e) => {
     e.preventDefault();
     registrar(app);

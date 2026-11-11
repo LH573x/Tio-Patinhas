@@ -11,11 +11,15 @@ export const CATEGORIAS_GASTO = [
   'Rolê', // saídas, festas, bares e bebida
   'Entretenimento',
   'Outros',
+  'Não lembro', // você sabe que gastou, mas não lembra com o quê
   'A definir', // gasto do extrato que você ainda não disse o que foi
 ];
 
 /** Categoria dos gastos que ainda precisam ser revisados. */
 export const A_DEFINIR = 'A definir';
+
+/** Gasto que você não lembra o que foi: sai de "A definir", mas o app não aprende nada com ele. */
+export const NAO_LEMBRO = 'Não lembro';
 
 export const CATEGORIAS_ENTRADA = ['Salário', 'Caixa 2 VR', 'Caixa 2', 'Poker', 'Outras entradas'];
 

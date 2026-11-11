@@ -1,7 +1,7 @@
 // Armazenamento dos registros no Supabase (com login).
 // Mantém uma cópia local para o app abrir rápido, mesmo sem internet.
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
-import { categoriaAtual } from './parser.js';
+import { categoriaAtual, NAO_LEMBRO } from './parser.js';
 
 const CHAVE_CACHE = 'tp.cache.v2';
 // Chaves da versão anterior, que guardava tudo só no aparelho.
@@ -566,7 +566,8 @@ export const store = {
   },
   async aprenderRegra(termo, categoria) {
     const t = termo.trim().toLowerCase();
-    if (!t) return;
+    // "Não lembro" é daquele gasto só: não ensina que o item é sempre isso.
+    if (!t || categoria === NAO_LEMBRO) return;
     cache.regras = [{ termo: t, categoria }, ...cache.regras.filter((r) => r.termo !== t)];
     marcar('regras', [t]);
     enfileirar({ op: 'upsert', tabela: 'regras', linhas: [{ termo: t, categoria }], conflito: 'user_id,termo' });

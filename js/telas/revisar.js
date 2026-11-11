@@ -1,6 +1,7 @@
 // Gastos "A definir": vieram do extrato sem você dizer o que foram.
 // Card no Início e uma folha para ir respondendo um por um, quando der tempo.
-import { CATEGORIAS_GASTO, A_DEFINIR, sugerirCategoria } from '../parser.js';
+import { CATEGORIAS_GASTO, A_DEFINIR, NAO_LEMBRO, sugerirCategoria } from '../parser.js';
+import { ligarSugestoes } from './sugestoes.js';
 import { aprenderEstabelecimentos, lembrarPorValor, chaveDoRegistro, quemDoRegistro, gastosParecidos } from '../extrato.js';
 import { lembrarLigado } from './lembrancas.js';
 import { store } from '../store.js';
@@ -64,6 +65,7 @@ export function revisarADefinir(app, pulados = new Set()) {
       </div>
       <label class="campo">O que foi?
         <input name="oque" placeholder="ex.: gasolina, almoço, remédio" autocomplete="off" enterkeyhint="done" value="${esc(est && est.item ? est.item : r.local && r.item !== r.local ? r.item : '')}">
+        <div id="sugestoes-oque"></div>
       </label>
       <div class="chips-filtro chips-categoria" role="radiogroup" aria-label="Categoria">
         ${CATEGORIAS.map((c) => `<button type="button" role="radio" class="chip-filtro ${c === categoria ? 'ativo' : ''}" data-cat="${esc(c)}"
@@ -88,6 +90,7 @@ export function revisarADefinir(app, pulados = new Set()) {
           <span>Todo ${r.tipo === 'entrada' ? 'valor' : 'pagamento'} de ${reais(r.valor)} ${r.tipo === 'entrada' ? 'de' : 'para'} ${esc(nomeQuem)} é isso
           <small>Os próximos iguais do extrato já entram assim</small></span></label>` : ''}
       <div class="acoes-folha">
+        <button type="button" class="link nao-lembro" id="nao-lembro">Não lembro</button>
         <button type="button" class="btn secundario" id="pular">Pular</button>
         <button type="submit" class="btn primario">${textoSalvar(marcadosNoInicio)}</button>
       </div>
@@ -102,6 +105,7 @@ export function revisarADefinir(app, pulados = new Set()) {
       });
     };
     let escolhida = false;
+    ligarSugestoes(campo, { caixa: $('#sugestoes-oque', folha) });
     campo.addEventListener('input', () => {
       if (escolhida) return;
       const c = sugerirCategoria(campo.value, 'gasto', store.regras());
@@ -126,10 +130,17 @@ export function revisarADefinir(app, pulados = new Set()) {
       caixas.forEach((c) => { c.checked = marcar; });
       atualizarGrupo();
     });
+    // Não lembra o que foi: sai de "A definir" como "Não lembro" (junto com os parecidos marcados)
+    $('#nao-lembro', folha).addEventListener('click', () => {
+      escolhida = true;
+      marcar(NAO_LEMBRO);
+      $('#form-definir', folha).requestSubmit();
+    });
     $('#pular', folha).addEventListener('click', () => revisarADefinir(app, new Set([...pulados, r.id])));
     $('#form-definir', folha).addEventListener('submit', async (e) => {
       e.preventDefault();
-      const oque = campo.value.trim();
+      // "Não lembro" não troca o nome do banco por um item
+      const oque = categoria === NAO_LEMBRO ? '' : campo.value.trim();
       if (!categoria) {
         aviso('Escolha a categoria', 'erro');
         return;
