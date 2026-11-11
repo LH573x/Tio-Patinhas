@@ -12,6 +12,8 @@ export const CATEGORIAS_INFO = {
   Besteira: { icone: '🍫', cor: '#c2255c', corEscura: '#e8598a' },
   'Rolê': { icone: '🎉', cor: '#c99700', corEscura: '#e0b000' },
   Entretenimento: { icone: '🎬', cor: '#0b8fa3', corEscura: '#2bb3c7' },
+  Roupas: { icone: '👕', cor: '#a35a2a', corEscura: '#cf8a55' },
+  'Metrô': { icone: '🚇', cor: '#3f5a8a', corEscura: '#7d9bd1' },
   Outros: { icone: '📦', cor: '#8b8a85', corEscura: '#8b8a85' },
   'Não lembro': { icone: '🤷', cor: '#6f6a88', corEscura: '#a29dbb' },
   // Ainda não se sabe o que foi: cor de atenção, para chamar a revisão.

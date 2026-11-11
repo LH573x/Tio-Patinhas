@@ -131,3 +131,21 @@ test('categoria antiga "Álcool" vira "Rolê", inclusive em regras aprendidas', 
   assert.ok(!CATEGORIAS_GASTO.includes('Álcool'));
   assert.equal(sugerirCategoria('bar do zé', 'gasto', [{ termo: 'bar do ze', categoria: 'Álcool' }]), 'Rolê');
 });
+
+test('categorias Roupas e Metrô', async () => {
+  const { sugerirCategoria, CATEGORIAS_GASTO } = await import('../js/parser.js');
+  const { CATEGORIAS_INFO } = await import('../js/categorias.js');
+  for (const c of ['Roupas', 'Metrô']) {
+    assert.ok(CATEGORIAS_GASTO.includes(c));
+    assert.ok(CATEGORIAS_INFO[c], `${c} tem ícone e cor`);
+  }
+  assert.equal(sugerirCategoria('camiseta renner'), 'Roupas');
+  assert.equal(sugerirCategoria('tênis'), 'Roupas');
+  assert.equal(sugerirCategoria('metrô'), 'Metrô');
+  assert.equal(sugerirCategoria('passagem do metro'), 'Metrô');
+  assert.equal(sugerirCategoria('recarga do bilhete único'), 'Metrô');
+  assert.equal(sugerirCategoria('passagem de avião'), 'Viagens');
+  const r = (f) => interpretar(f, { hoje });
+  assert.equal(r('camisa 80 pix').categoria, 'Roupas');
+  assert.equal(r('metro 5,40').categoria, 'Metrô');
+});
