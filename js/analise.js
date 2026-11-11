@@ -1,6 +1,6 @@
 // Cálculos do painel: totais, comparações, limites, semana e dicas.
 // Funções puras (sem tela), para poderem ser testadas.
-import { semAcento } from './parser.js';
+import { semAcento, etiquetasDe, etiquetaDe } from './parser.js';
 
 export const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto',
   'setembro', 'outubro', 'novembro', 'dezembro'];
@@ -556,4 +556,42 @@ export function gastosDaCategoria(registros, categoria, { de, ate }) {
     .filter((r) => r.tipo === 'gasto' && r.categoria === categoria && r.data >= de && r.data <= ate)
     .sort((a, b) => b.valor - a.valor || b.data.localeCompare(a.data) || (b.hora || '').localeCompare(a.hora || ''));
   return { lista, total: soma(lista) };
+}
+
+/** Rótulo dos gastos sem etiqueta numa categoria que tem etiquetas. */
+export const SEM_ETIQUETA = 'Sem etiqueta';
+
+/**
+ * Quanto foi para cada etiqueta da categoria, na ordem das etiquetas (as sem gasto ficam de fora).
+ * Retorna [{ etiqueta, valor, quantos }]; "Sem etiqueta" vem por último, se houver.
+ */
+export function porEtiqueta(lista, categoria) {
+  const mapa = new Map();
+  for (const r of lista) {
+    const e = etiquetaDe(r) || SEM_ETIQUETA;
+    const atual = mapa.get(e) || { etiqueta: e, valor: 0, quantos: 0 };
+    atual.valor = r2(atual.valor + r.valor);
+    atual.quantos += 1;
+    mapa.set(e, atual);
+  }
+  const ordem = [...etiquetasDe(categoria), SEM_ETIQUETA];
+  return [...mapa.values()].sort((a, b) => ordem.indexOf(a.etiqueta) - ordem.indexOf(b.etiqueta));
+}
+
+/** Só os registros de uma etiqueta (SEM_ETIQUETA = os que não têm). */
+export function daEtiqueta(lista, etiqueta) {
+  return lista.filter((r) => (etiquetaDe(r) || SEM_ETIQUETA) === etiqueta);
+}
+
+/**
+ * Registros que passam nos filtros da tela de Lançamentos, do mais recente para o mais antigo.
+ * `de`/`ate` (ISO, inclusivas), `categoria` e `etiqueta` são opcionais; `termo` já sem acento.
+ */
+export function filtrarLancamentos(registros, { de = '', ate = '', categoria = '', etiqueta = '', termo = '' } = {}) {
+  return registros
+    .filter((r) => (!de || r.data >= de) && (!ate || r.data <= ate))
+    .filter((r) => !categoria || r.categoria === categoria)
+    .filter((r) => !etiqueta || (etiquetaDe(r) || SEM_ETIQUETA) === etiqueta)
+    .filter((r) => !termo || semAcento(`${r.item} ${r.categoria} ${etiquetaDe(r) || ''} ${r.metodo || ''} ${r.local || ''} ${r.textoOriginal || ''}`).includes(termo))
+    .sort((a, b) => b.data.localeCompare(a.data) || (b.hora || '').localeCompare(a.hora || '') || (b.criadoEm || '').localeCompare(a.criadoEm || ''));
 }

@@ -1,5 +1,5 @@
 // Linha de um registro e a folha de edição, usadas em várias telas.
-import { CATEGORIAS_GASTO, CATEGORIAS_ENTRADA, METODOS } from '../parser.js';
+import { CATEGORIAS_GASTO, CATEGORIAS_ENTRADA, METODOS, etiquetasDe, etiquetaDe } from '../parser.js';
 import { store } from '../store.js';
 import { $, $$, esc, reais, abrirFolha, confirmar, aviso, lerNumero, numeroParaCampo, ICONES } from '../util.js';
 import { opcoesCartao } from './cartoes.js';
@@ -12,7 +12,8 @@ export function bolinha(categoria, app) {
 }
 
 export function linhaRegistro(r, app, { mostrarData = false } = {}) {
-  const detalhe = [r.categoria, r.parcela ? r.parcela.replace('/', ' de ') : null, r.metodo,
+  const etiqueta = etiquetaDe(r);
+  const detalhe = [etiqueta ? `${r.categoria} › ${etiqueta}` : r.categoria, r.parcela ? r.parcela.replace('/', ' de ') : null, r.metodo,
     mostrarData ? r.data.split('-').reverse().slice(0, 2).join('/') : null, r.hora, r.local]
     .filter(Boolean).join(' · ');
   return `
@@ -39,6 +40,14 @@ function opcoes(lista, atual) {
   return lista.map((o) => `<option ${o === atual ? 'selected' : ''}>${esc(o)}</option>`).join('');
 }
 
+/** Campo de etiqueta da categoria (vazio se ela não tem etiquetas). `atual` vem marcada. */
+export function campoEtiqueta(categoria, atual, { id = '', nome = 'etiqueta' } = {}) {
+  const lista = etiquetasDe(categoria);
+  if (!lista.length) return '';
+  return `<label class="campo">Etiqueta<select ${id ? `id="${id}"` : ''} name="${nome}">
+    ${atual && lista.includes(atual) ? '' : '<option value="">—</option>'}${opcoes(lista, atual)}</select></label>`;
+}
+
 export function editarRegistro(r, app) {
   const cats = r.tipo === 'entrada' ? CATEGORIAS_ENTRADA : CATEGORIAS_GASTO;
   // Veio do extrato: mostra quem recebeu (ou pagou), com o nome que você deu, se deu.
@@ -57,6 +66,7 @@ export function editarRegistro(r, app) {
         <label class="campo">Categoria<select name="categoria">${opcoes(cats, r.categoria)}</select></label>
         <label class="campo">Pagamento<select name="metodo"><option value="">—</option>${opcoes(METODOS, r.metodo)}</select></label>
       </div>
+      <div class="campo-etiqueta" id="campo-etiqueta">${campoEtiqueta(r.categoria, etiquetaDe(r))}</div>
       ${r.tipo === 'gasto' && store.cartoes().length ? `
         <label class="campo" id="campo-cartao" ${r.metodo === 'Crédito' ? '' : 'hidden'}>Cartão<select name="cartao">${opcoesCartao(r.cartaoId)}</select></label>` : ''}
       <div class="dupla">
@@ -73,6 +83,13 @@ export function editarRegistro(r, app) {
       </div>
     </form>`, (folha, fechar) => {
     ligarSugestoes($('input[name=item]', folha), { tipo: r.tipo });
+    // Trocou a categoria: mostra as etiquetas dela, já com a mais provável marcada.
+    $('select[name=categoria]', folha).addEventListener('change', (e) => {
+      const cat = e.target.value;
+      const item = $('input[name=item]', folha).value;
+      const sugerida = cat === r.categoria ? etiquetaDe(r) : store.sugerirEtiqueta(item, cat, r.textoOriginal) || etiquetaDe({ categoria: cat });
+      $('#campo-etiqueta', folha).innerHTML = campoEtiqueta(cat, sugerida);
+    });
     $('select[name=metodo]', folha).addEventListener('change', (e) => {
       const campo = $('#campo-cartao', folha);
       if (campo) campo.hidden = e.target.value !== 'Crédito';
@@ -86,7 +103,7 @@ export function editarRegistro(r, app) {
         return;
       }
       const metodo = f.get('metodo') || null;
-      const m = { ...r, item: f.get('item').trim(), valor, data: f.get('data'), categoria: f.get('categoria'), metodo,
+      const m = { ...r, item: f.get('item').trim(), valor, data: f.get('data'), categoria: f.get('categoria'), etiqueta: f.get('etiqueta') || null, metodo,
         local: quem ? r.local : (f.get('local') || '').trim() || null, hora: f.get('hora') || null,
         cartaoId: metodo === 'Crédito' ? (f.get('cartao') ?? r.cartaoId) || null : null };
       try {

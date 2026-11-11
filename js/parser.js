@@ -11,7 +11,7 @@ export const CATEGORIAS_GASTO = [
   'Rolê', // saídas, festas, bares e bebida
   'Entretenimento',
   'Roupas',
-  'Metrô',
+  'Transporte', // Uber, metrô, ônibus...
   'Outros',
   'Não lembro', // você sabe que gastou, mas não lembra com o quê
   'A definir', // gasto do extrato que você ainda não disse o que foi
@@ -26,9 +26,11 @@ export const NAO_LEMBRO = 'Não lembro';
 export const CATEGORIAS_ENTRADA = ['Salário', 'Caixa 2 VR', 'Caixa 2', 'Poker', 'Outras entradas'];
 
 // Categorias que deixaram de existir -> para onde foram.
-export const CATEGORIAS_ANTIGAS = { 'Álcool': 'Rolê' };
+export const CATEGORIAS_ANTIGAS = { 'Álcool': 'Rolê', 'Metrô': 'Transporte' };
+// Etiqueta que os registros de uma categoria antiga ganham ao mudar de nome.
+export const ETIQUETA_DAS_ANTIGAS = { 'Metrô': 'Transporte público' };
 
-/** Nome atual da categoria (registros antigos com "Álcool" passam a ser "Rolê"). */
+/** Nome atual da categoria (registros antigos com "Álcool" passam a ser "Rolê", "Metrô" vira "Transporte"). */
 export function categoriaAtual(nome) {
   return CATEGORIAS_ANTIGAS[nome] || nome;
 }
@@ -39,7 +41,10 @@ export const METODOS = ['Pix', 'Débito', 'Crédito', 'Dinheiro', 'Vale'];
 // A ordem importa: categorias "de contexto" (Namorada, Viagens) vêm primeiro,
 // porque "jantar com a namorada" deve cair em Namorada, não em Refeições.
 const PALAVRAS_CATEGORIA = [
-  ['Metrô', ['metro', 'cptm', 'trem', 'bilhete unico', 'recarga do bilhete', 'cartao top']],
+  // "uber eats" é comida, não corrida
+  ['Refeições', ['uber eats']],
+  ['Transporte', ['uber', 'taxi', '99 pop', '99pop', '99 taxi', '99taxi', 'cabify', 'indrive', 'corrida',
+    'metro', 'cptm', 'trem', 'onibus', 'bilhete unico', 'recarga do bilhete', 'cartao top', 'sptrans', 'brt', 'vlt']],
   ['Roupas', ['roupa', 'roupas', 'camisa', 'camiseta', 'calca', 'bermuda', 'shorts', 'tenis', 'sapato', 'chinelo', 'havaianas',
     'jaqueta', 'casaco', 'blusa', 'moletom', 'cueca', 'calcinha', 'sutia', 'vestido', 'saia', 'bone', 'renner', 'riachuelo',
     'zara', 'shein', 'hering', 'centauro', 'netshoes']],
@@ -65,6 +70,55 @@ const PALAVRAS_CATEGORIA = [
     'delivery', 'pizza', 'hamburguer', 'burger', 'mcdonalds', 'bk', 'marmita', 'self service',
     'lanchonete', 'esfiha', 'sushi', 'pao de queijo', 'refeicao', 'quentinha']],
 ];
+
+// Etiquetas: dividem uma categoria sem mexer nos totais (o gasto continua contando
+// só na categoria). Ex.: Namorada › Viagem, Transporte › Uber.
+export const ETIQUETAS = {
+  Namorada: ['Viagem', 'Estacionamento', 'Refeições', 'Presentes', 'Outros'],
+  Transporte: ['Uber', 'Transporte público'],
+};
+
+// Sem etiqueta escolhida, o gasto fica nesta (as outras categorias ficam "sem etiqueta").
+const ETIQUETA_PADRAO = { Namorada: 'Outros' };
+
+const palavrasDe = (cat) => PALAVRAS_CATEGORIA.filter(([c]) => c === cat).flatMap(([, p]) => p);
+
+// Palavras-chave -> etiqueta, por categoria. A ordem importa: "chocolate de presente" é Presentes.
+const PALAVRAS_ETIQUETA = {
+  Namorada: [
+    ['Viagem', palavrasDe('Viagens')],
+    ['Estacionamento', ['estacionamento', 'estacionei', 'zona azul', 'valet', 'manobrista']],
+    ['Presentes', ['presente', 'presentinho', 'presente pra ela', 'flor', 'flores', 'buque', 'joia', 'perfume', 'aniversario dela']],
+    ['Refeições', [...palavrasDe('Refeições'), ...palavrasDe('Besteira')]],
+  ],
+  Transporte: [
+    ['Uber', ['uber', 'taxi', '99 pop', '99pop', '99 taxi', '99taxi', 'cabify', 'indrive', 'corrida']],
+    ['Transporte público', ['metro', 'cptm', 'trem', 'onibus', 'bilhete unico', 'recarga do bilhete', 'cartao top', 'sptrans', 'brt', 'vlt']],
+  ],
+};
+
+/** Etiquetas que dá para escolher na categoria ([] se ela não tem). */
+export function etiquetasDe(categoria) {
+  return ETIQUETAS[categoria] || [];
+}
+
+/** Etiqueta do registro como aparece no app (a padrão da categoria, se ainda não tem). */
+export function etiquetaDe(r) {
+  const lista = etiquetasDe(r.categoria);
+  if (r.etiqueta && lista.includes(r.etiqueta)) return r.etiqueta;
+  return ETIQUETA_PADRAO[r.categoria] || null;
+}
+
+/** Etiqueta pelas palavras do texto ("uber pra casa" -> Uber); null se não der para saber. */
+export function sugerirEtiqueta(texto, categoria) {
+  const regras = PALAVRAS_ETIQUETA[categoria];
+  if (!regras || !texto) return null;
+  const norm = semAcento(texto);
+  for (const [etiqueta, palavras] of regras) {
+    if (palavras.some((p) => contemPalavra(norm, p))) return etiqueta;
+  }
+  return null;
+}
 
 // Entradas com nome próprio. A ordem importa: "caixa 2 vr" antes de "caixa 2".
 const PALAVRAS_CATEGORIA_ENTRADA = [
@@ -318,6 +372,7 @@ export function interpretar(frase, { hoje = new Date(), regras = [], cartoes = [
     valor,
     metodo,
     categoria,
+    etiqueta: sugerirEtiqueta(item, categoria) || sugerirEtiqueta(textoOriginal, categoria),
     data,
     parcelas,
     valorParcela,

@@ -63,7 +63,7 @@ export function talvezPerguntar({ r, m, quem, nome, nomesDoBanco, app }) {
       fechar();
       if (b.dataset.r === 'sempre') {
         await store.salvarEstabelecimentos([{ chave, nome: quem.original, item: m.item, categoria: m.categoria, vezes: 3 }]);
-        await store.atualizarVarios(outras.map((x) => x.id), { item: m.item, categoria: m.categoria });
+        await store.atualizarVarios(outras.map((x) => x.id), { item: m.item, categoria: m.categoria, etiqueta: m.etiqueta ?? null });
         aviso(outras.length ? `Combinado. ${outras.length + 1} transações agora são “${m.item}”.` : `Combinado. Os próximos já entram como “${m.item}”.`);
       } else {
         // Guarda que pode variar (sem item): não pergunta de novo e não preenche sozinho

@@ -31,6 +31,9 @@ begin
   alter table public.registros add column if not exists hora time;
   -- Estabelecimento (ou pessoa do Pix) como veio do extrato, para aprender o que foi.
   alter table public.registros add column if not exists estabelecimento text;
+  -- Etiqueta dentro da categoria (ex.: Namorada › Viagem, Transporte › Uber).
+  -- O gasto continua contando só na categoria; a etiqueta serve para filtrar.
+  alter table public.registros add column if not exists etiqueta text;
 
   ---------------------------------------------------------------------------
   -- Regras aprendidas: "posto shell" => "Carro".
