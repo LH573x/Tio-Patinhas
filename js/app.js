@@ -74,6 +74,12 @@ store.aoFalharEnvio((msg) => {
   app.render();
 });
 
+// Banco do Supabase sem uma tabela ou coluna nova: o que ele não aceitou fica guardado no celular.
+store.aoBancoDesatualizado(() => {
+  aviso('Guardado só no celular por enquanto: falta rodar o schema.sql no Supabase.', 'erro');
+  app.render();
+});
+
 // ---------------------------------------------------------------- Ajustes
 const OPCOES_TEMA = [
   { id: 'claro', nome: 'Claro', icone: ICONES.sol },

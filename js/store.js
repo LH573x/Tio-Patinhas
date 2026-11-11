@@ -78,8 +78,43 @@ function paraBanco(r) {
 const COLUNAS_BANCO = { textoOriginal: 'texto_original', refExterna: 'ref_externa', cartaoId: 'cartao_id', criadoEm: 'criado_em' };
 
 // Banco ainda sem colunas novas (local, hora, cartao_id, etiqueta): grava sem elas até o schema.sql ser rodado de novo.
+// O que ficou de fora não se perde: fica guardado neste aparelho (semBanco) e vai quando o banco tiver a coluna.
 const COLUNAS_NOVAS = ['local', 'hora', 'cartao_id', 'estabelecimento', 'etiqueta'];
 const colunasFaltando = new Set();
+
+// ---------- O que o banco desatualizado ainda não aceita ----------
+// campos: { [id do registro]: { etiqueta, cartao_id, ... } } que não couberam no banco (coluna faltando).
+// envios: envios recusados por falta de tabela ou coluna (ex.: "quem recebeu" sem a coluna apelido).
+// Nada disso é descartado: é reenviado sozinho depois que o SQL for rodado no Supabase.
+const CHAVE_SEM_BANCO = 'tp.semBanco.v1';
+let semBanco = { dono: null, campos: {}, envios: [], ...lerLocal(CHAVE_SEM_BANCO, {}) };
+let avisarBanco = () => {};
+let jaAvisouBanco = false;
+function gravarSemBanco() {
+  gravarLocal(CHAVE_SEM_BANCO, semBanco);
+}
+function bancoRecusou() {
+  store.bancoDesatualizado = true;
+  if (jaAvisouBanco) return;
+  jaAvisouBanco = true;
+  setTimeout(() => avisarBanco(), 0);
+}
+/** Guarda os campos de `id` que o banco não aceitou por falta da coluna. true se guardou algo. */
+function guardarCampos(id, campos, soComValor) {
+  const tirados = {};
+  for (const c of colunasFaltando) if (c in campos && (!soComValor || campos[c] != null)) tirados[c] = campos[c];
+  if (!Object.keys(tirados).length) return false;
+  semBanco.campos[id] = { ...semBanco.campos[id], ...tirados };
+  return true;
+}
+// Linha do banco com o que ficou guardado no aparelho por cima.
+function comGuardados(row) {
+  const g = semBanco.campos[row.id];
+  return g ? { ...row, ...g } : row;
+}
+// Recusa por banco desatualizado (tabela ou coluna faltando, campo que ainda não pode ficar vazio).
+const faltaNoBanco = (e) => /^(PGRST204|PGRST205|42P01|42703|23502)$/.test(`${(e && e.code) || ''}`)
+  || /could not find the .*(column|table)|relation .* does not exist|schema cache|violates not-null/i.test(`${(e && e.message) || ''}`);
 function paraBancoCompat(r) {
   const b = paraBanco(r);
   for (const c of colunasFaltando) delete b[c];
@@ -206,6 +241,10 @@ function definirUsuario(u) {
     cache.dono = u.id;
     salvarCache();
   }
+  if (semBanco.dono !== u.id) {
+    semBanco = { dono: u.id, campos: semBanco.dono ? {} : semBanco.campos, envios: semBanco.dono ? [] : semBanco.envios };
+    gravarSemBanco();
+  }
 }
 
 // Sem sessão válida (login vencido e sem internet para renovar), o Supabase manda os pedidos
@@ -269,19 +308,30 @@ async function enviar(o) {
   const tabela = cliente.from(o.tabela);
   const compat = o.tabela === 'registros' ? paraBancoParcial : (x) => x;
   let res = { error: null };
+  let guardou = false;
   if (o.op === 'inserir') {
     res = await gravarCompat(() => cliente.from(o.tabela).upsert(o.linhas.map(compat), { onConflict: 'id', ignoreDuplicates: true }));
+    if (!res.error && o.tabela === 'registros') for (const l of o.linhas) guardou = guardarCampos(l.id, l, true) || guardou;
   } else if (o.op === 'upsert') {
     res = await tabela.upsert(o.linhas, { onConflict: o.conflito });
   } else if (o.op === 'atualizar') {
     for (let i = 0; i < o.ids.length && !res.error; i += 100) { // em lotes, para o endereço não ficar grande demais
       const lote = o.ids.slice(i, i + 100);
-      res = await gravarCompat(() => (lote.length === 1
-        ? cliente.from(o.tabela).update(compat(o.campos)).eq('id', lote[0])
-        : cliente.from(o.tabela).update(compat(o.campos)).in('id', lote)));
+      res = await gravarCompat(() => {
+        const campos = compat(o.campos);
+        if (!Object.keys(campos).length) return { error: null }; // só colunas que o banco ainda não tem: fica guardado
+        return lote.length === 1
+          ? cliente.from(o.tabela).update(campos).eq('id', lote[0])
+          : cliente.from(o.tabela).update(campos).in('id', lote);
+      });
     }
+    if (!res.error && o.tabela === 'registros') for (const id of o.ids) guardou = guardarCampos(id, o.campos, false) || guardou;
   } else if (o.op === 'apagar') {
     for (let i = 0; i < o.ids.length && !res.error; i += 100) res = await cliente.from(o.tabela).delete().in('id', o.ids.slice(i, i + 100));
+  }
+  if (guardou) {
+    gravarSemBanco();
+    bancoRecusou();
   }
   if (res.error) throw Object.assign(new Error(res.error.message || String(res.error)), { code: res.error.code, status: res.status });
 }
@@ -304,7 +354,14 @@ function processarFila() {
         await enviar(pendentes[0]);
       } catch (err) {
         if (temporario(err)) break; // continua guardado; tenta quando der
-        recusado = err; // ex.: o banco recusou o valor: descarta só este envio e segue com os outros
+        if (faltaNoBanco(err)) {
+          // Banco desatualizado: guarda no aparelho e reenvia depois que o SQL for rodado.
+          semBanco.envios.push(pendentes[0]);
+          gravarSemBanco();
+          bancoRecusou();
+        } else {
+          recusado = err; // ex.: o banco recusou o valor: descarta só este envio e segue com os outros
+        }
       }
       pendentes.shift();
       gravarLocal(CHAVE_PENDENTES, pendentes);
@@ -403,6 +460,13 @@ export const store = {
 
   // ---------- Dados ----------
   async carregar() {
+    // O que esperava o banco ser atualizado tenta de novo (se ainda faltar, volta a esperar).
+    if (semBanco.envios.length) {
+      pendentes = [...semBanco.envios, ...pendentes];
+      semBanco.envios = [];
+      gravarLocal(CHAVE_PENDENTES, pendentes);
+      gravarSemBanco();
+    }
     await processarFila();
     if (pendentes.length) throw new Error('Sem conexão com a internet.'); // mudanças guardadas esperando a internet
     await baixarTudo();
@@ -417,6 +481,14 @@ export const store = {
   },
   aoFalharEnvio(f) {
     avisarErro = f;
+  },
+  /** Avisa (uma vez por abertura do app) quando algo ficou guardado no aparelho esperando o banco ser atualizado. */
+  aoBancoDesatualizado(f) {
+    avisarBanco = f;
+  },
+  /** Quantas coisas estão guardadas neste aparelho esperando o banco ser atualizado. */
+  esperandoBanco() {
+    return Object.keys(semBanco.campos).length + semBanco.envios.length;
   },
   async _baixarTudo() {
     const mudou = {};
@@ -445,7 +517,10 @@ export const store = {
       .order('data', { ascending: false }).order('id').range(de, de + passo - 1);
     const primeira = await pagina(0, true);
     if (primeira.error) falhar(primeira.error);
-    if (primeira.data.length) for (const c of COLUNAS_NOVAS) if (!(c in primeira.data[0])) colunasFaltando.add(c);
+    if (primeira.data.length) {
+      colunasFaltando.clear(); // o SQL pode ter sido rodado desde a última vez
+      for (const c of COLUNAS_NOVAS) if (!(c in primeira.data[0])) colunasFaltando.add(c);
+    }
     const total = primeira.count ?? primeira.data.length;
     const resto = [];
     for (let de = passo; de < total; de += passo) resto.push(pagina(de));
@@ -458,10 +533,15 @@ export const store = {
       }
     }
     const registros = [];
+    const naNuvem = new Set();
     for (const pg of paginas) {
       if (pg.error) falhar(pg.error);
-      for (const row of pg.data) registros.push(doBanco(row));
+      for (const row of pg.data) {
+        naNuvem.add(row.id);
+        registros.push(doBanco(comGuardados(row)));
+      }
     }
+    this._reenviarGuardados(naNuvem, primeira.data.length > 0);
     const [regras, orcamentos, metas, caixa, contas, cartoes, estabelecimentos] = await outras;
     if (regras.error) falhar(regras.error);
     const local = cache;
@@ -480,10 +560,35 @@ export const store = {
         categoria: e.categoria && categoriaAtual(e.categoria), vezes: Number(e.vezes) })), local.estabelecimentos || [], mudou.estabelecimentos, (e) => e.chave),
     };
     this.semEstabelecimentos = Boolean(estabelecimentos.error);
-    this.bancoDesatualizado = Boolean(orcamentos.error || metas.error || caixa.error || contas.error || cartoes.error || estabelecimentos.error || colunasFaltando.size);
+    this.bancoDesatualizado = Boolean(orcamentos.error || metas.error || caixa.error || contas.error || cartoes.error || estabelecimentos.error
+      || colunasFaltando.size || semBanco.envios.length);
     salvarCache();
   },
   bancoDesatualizado: false,
+  /** Campos guardados no aparelho cuja coluna agora existe no banco: manda (agrupados) e esquece. */
+  _reenviarGuardados(naNuvem, sabeColunas) {
+    const grupos = new Map();
+    let mudou = false;
+    const locais = new Set(cache.registros.map((r) => r.id));
+    for (const [id, campos] of Object.entries(semBanco.campos)) {
+      if (!naNuvem.has(id)) {
+        if (!locais.has(id)) { delete semBanco.campos[id]; mudou = true; } // registro apagado
+        continue;
+      }
+      if (!sabeColunas) continue;
+      const prontos = Object.fromEntries(Object.entries(campos).filter(([c]) => !colunasFaltando.has(c)));
+      if (!Object.keys(prontos).length) continue;
+      const chave = JSON.stringify(prontos);
+      if (!grupos.has(chave)) grupos.set(chave, { campos: prontos, ids: [] });
+      grupos.get(chave).ids.push(id);
+      const resto = Object.fromEntries(Object.entries(campos).filter(([c]) => colunasFaltando.has(c)));
+      if (Object.keys(resto).length) semBanco.campos[id] = resto;
+      else delete semBanco.campos[id];
+      mudou = true;
+    }
+    if (mudou) gravarSemBanco();
+    if (grupos.size) enfileirar(...[...grupos.values()].map((g) => ({ op: 'atualizar', tabela: 'registros', ids: g.ids, campos: g.campos })));
+  },
   /**
    * Todos os registros. A lista não muda de lugar enquanto nada muda (as telas reaproveitam
    * os cálculos feitos sobre ela); cada mudança cria uma lista nova. Não altere a lista.
@@ -521,7 +626,14 @@ export const store = {
       if (!novos.length) return 0;
       const { data, error } = await gravarCompat(() => cliente.from('registros').insert(novos.map(paraBancoCompat)).select());
       if (!error) {
-        cache.registros = [...cache.registros, ...data.map(doBanco)];
+        // O que não coube no banco (coluna faltando) fica guardado no aparelho até ele ser atualizado.
+        let guardou = false;
+        data.forEach((row, i) => { if (novos[i]) guardou = guardarCampos(row.id, paraBanco(novos[i]), true) || guardou; });
+        if (guardou) {
+          gravarSemBanco();
+          bancoRecusou();
+        }
+        cache.registros = [...cache.registros, ...data.map((row) => doBanco(comGuardados(row)))];
         marcar('registros', data.map((r) => r.id));
         salvarCache();
         return data.length;
@@ -536,7 +648,7 @@ export const store = {
   },
   semEstabelecimentos: false,
   async salvarEstabelecimentos(lista) {
-    if (!lista.length || this.semEstabelecimentos) return;
+    if (!lista.length) return; // sem a tabela no banco, o envio fica guardado no aparelho até ela existir
     const agora = new Date().toISOString();
     const linhas = lista.map((e) => ({ chave: e.chave, nome: e.nome || null, apelido: e.apelido || null, item: e.item || null,
       categoria: e.categoria || null, vezes: e.vezes ?? 1, atualizado_em: agora }));

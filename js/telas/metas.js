@@ -133,7 +133,7 @@ export function telaMetas(raiz, app) {
   const semLimite = CATEGORIAS_GASTO.filter((c) => !status.has(c) && c !== A_DEFINIR);
 
   raiz.innerHTML = `
-    ${avisoBanco(store.bancoDesatualizado)}
+    ${avisoBanco(store.bancoDesatualizado, store.esperandoBanco())}
     ${cardContas(app)}
 
     <section class="cartao">
