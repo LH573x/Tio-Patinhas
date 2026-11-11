@@ -10,6 +10,8 @@ export const CATEGORIAS_GASTO = [
   'Besteira', // evitável: doces, salgadinho, refrigerante...
   'Rolê', // saídas, festas, bares e bebida
   'Entretenimento',
+  'Roupas',
+  'Metrô',
   'Outros',
   'Não lembro', // você sabe que gastou, mas não lembra com o quê
   'A definir', // gasto do extrato que você ainda não disse o que foi
@@ -37,6 +39,10 @@ export const METODOS = ['Pix', 'Débito', 'Crédito', 'Dinheiro', 'Vale'];
 // A ordem importa: categorias "de contexto" (Namorada, Viagens) vêm primeiro,
 // porque "jantar com a namorada" deve cair em Namorada, não em Refeições.
 const PALAVRAS_CATEGORIA = [
+  ['Metrô', ['metro', 'cptm', 'trem', 'bilhete unico', 'recarga do bilhete', 'cartao top']],
+  ['Roupas', ['roupa', 'roupas', 'camisa', 'camiseta', 'calca', 'bermuda', 'shorts', 'tenis', 'sapato', 'chinelo', 'havaianas',
+    'jaqueta', 'casaco', 'blusa', 'moletom', 'cueca', 'calcinha', 'sutia', 'vestido', 'saia', 'bone', 'renner', 'riachuelo',
+    'zara', 'shein', 'hering', 'centauro', 'netshoes']],
   ['Namorada', ['namorada', 'namo', 'mozao', 'amor', 'presente pra ela', 'date']],
   ['Viagens', ['viagem', 'hotel', 'pousada', 'airbnb', 'passagem', 'aviao', 'voo', 'rodoviaria', 'hospedagem', 'mala']],
   // "alcool" sozinho continua sendo combustível (Carro); bebida é cerveja, vinho, drink...
