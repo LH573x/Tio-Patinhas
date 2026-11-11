@@ -23,7 +23,9 @@ Telas:
 - **Painel**: faturas de cada cartão (valor, vencimento e limite usado), para onde foi o dinheiro, comparação com o mês anterior, gastos dos últimos 6 meses, dicas de economia, semana passada e parcelas futuras.
 - **Metas**: contas fixas (com botão “Paguei”), cartões de crédito, limite por categoria e metas de economia.
 
-**Tio Patinhas, o assessor**: o mascote do app (um pato idoso e econômico, de cartola e óculos redondos) aparece de vez em quando no Início com um conselho: um alerta de limite, uma dica de economia com os seus números, um elogio quando você gasta menos que no mês passado ou, em alguns dias, um ditado de quem sabe guardar dinheiro. Depois do “Valeu, tio” ele só volta no dia seguinte (ou antes, se surgir um alerta novo) e não repete o mesmo conselho por alguns dias. O desenho é original, no estilo dos desenhos animados clássicos (contorno de tinta, sombra e brilho), feito em SVG (`js/mascote.js`); os ícones saem dele com `node scripts/icones.mjs`.
+**Tio Patinhas, o assessor**: o mascote do app (um pato idoso e econômico, de cartola e óculos redondos) aparece de vez em quando no Início com um conselho: um alerta de limite, uma dica de economia com os seus números, um elogio quando você gasta menos que no mês passado ou, em alguns dias, um ditado de quem sabe guardar dinheiro. Depois do “Valeu, tio” ele só volta no dia seguinte (ou antes, se surgir um alerta novo) e não repete o mesmo conselho por alguns dias. O desenho é original, no estilo dos desenhos animados clássicos (contorno de tinta, sombra e brilho), feito em SVG (`js/mascote.js`).
+
+**Logo**: o Tio Patinhas cunhado numa moeda de ouro (`scripts/moeda.mjs`). O retrato é o desenho em `scripts/retrato.png`, vetorizado em `scripts/retrato.mjs` com `python3 scripts/tracar_retrato.py`. Os ícones do app saem da moeda com `node scripts/icones.mjs`.
 
 A previsão do mês soma o ritmo dos gastos do dia a dia com as contas fixas e parcelas pelo valor certo.
 
@@ -52,3 +54,9 @@ Sem build: HTML, CSS e JavaScript puros.
 python3 -m http.server 8000   # abre em http://localhost:8000
 npm test                      # testes (frases, extratos e análises)
 ```
+
+Para abrir rápido: o app aparece na hora com a cópia guardada no celular (sem esperar o login renovar nem a internet), a fonte Inter vem junto com o app (`fonts/`, licença SIL OFL) e o service worker guarda tudo para funcionar offline. Gastos registrados enquanto o app sincroniza não somem, e a fila de envio só descarta o que a nuvem recusar de verdade.
+
+---
+
+Desenvolvido por Luiz Hong.

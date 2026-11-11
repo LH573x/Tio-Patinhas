@@ -2,6 +2,16 @@
    Fundo liso, listas com linhas finas em vez de cartões, um número grande por tela,
    um verde de destaque e laranja só para alerta. */
 
+/* Inter (SIL Open Font License, veja fonts/Inter-OFL.txt), só os caracteres latinos. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../fonts/inter-latin-v20.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
   --fundo: #fafaf8;
   --superficie: #ffffff;
@@ -220,7 +230,7 @@ main.com-campo { padding-bottom: calc(var(--barra-abas) + 120px + env(safe-area-
 /* ---------------------------------------------------------------- Login */
 .login { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; gap: 32px; padding: 32px 24px; max-width: 400px; margin: 0 auto; }
 .login-marca { text-align: center; }
-.login-marca img { border-radius: 20px; width: 72px; height: 72px; }
+.login-marca .login-logo { display: block; width: 112px; height: 112px; margin: 0 auto; filter: drop-shadow(0 6px 14px rgba(120, 80, 10, .22)); }
 .login-marca h1 { font-size: 28px; font-weight: 650; letter-spacing: -.03em; margin-top: 16px; }
 .login-marca p { margin: 4px 0 0; color: var(--texto-3); }
 .login form { display: flex; flex-direction: column; gap: 12px; }
@@ -445,7 +455,8 @@ main.com-campo { padding-bottom: calc(var(--barra-abas) + 120px + env(safe-area-
 .menu-item span { flex: 1; }
 .menu-item svg { width: 20px; height: 20px; color: var(--texto-3); }
 .menu-item.perigo-texto svg { color: var(--negativo); }
-.versao { text-align: center; font-size: 12px; color: var(--texto-3); margin: 16px 0 0; }
+/* Rodapé dos Ajustes: versão e crédito, discretos */
+.creditos { text-align: center; font-size: 12px; color: var(--texto-3); margin: 24px 0 4px; }
 
 /* ---------------------------------------------------------------- Importação */
 .imp-lista { display: flex; flex-direction: column; margin-top: 10px; }
@@ -543,6 +554,7 @@ main.com-campo { padding-bottom: calc(var(--barra-abas) + 120px + env(safe-area-
 /* ---------------------------------------------------------------- Tio Patinhas, o assessor */
 .mascote { display: block; width: 100%; height: 100%; }
 .assessor { display: flex; align-items: flex-start; gap: 12px; animation: assessor-chega .45s cubic-bezier(.2, .9, .3, 1.2) both; }
+.assessor.parado { animation: none; }
 .assessor.saindo { animation: assessor-sai .25s ease-in forwards; }
 .assessor-avatar {
   /* O círculo dourado corta o casaco embaixo, e a cartola sai por cima. */
@@ -566,12 +578,6 @@ main.com-campo { padding-bottom: calc(var(--barra-abas) + 120px + env(safe-area-
 @keyframes assessor-chega { from { opacity: 0; transform: translateY(8px); } }
 @keyframes assessor-sai { to { opacity: 0; transform: translateY(-6px); } }
 
-.login-marca .login-mascote {
-  position: relative; width: 104px; height: 104px; margin: 24px auto 0; border-radius: 50%;
-  background: color-mix(in srgb, #e8b84a 30%, var(--superficie));
-  clip-path: inset(-60px -20px 0 -20px round 0 0 52px 52px);
-}
-.login-marca .login-mascote img { position: absolute; left: -6px; bottom: -10px; width: 116px; height: auto; border-radius: 0; }
 
 /* Toque responde na hora (sem esperar zoom de toque duplo) */
 button, a, input, select, label, .registro, .chip-filtro, .cat-linha { touch-action: manipulation; }

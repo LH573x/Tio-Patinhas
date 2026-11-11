@@ -9,6 +9,18 @@ export const DIAS_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
 const r2 = (v) => Math.round(v * 100) / 100;
 
+// Criar o formatador é a parte cara do toLocaleString e cada tela formata centenas de
+// valores: cada formato é criado uma vez só.
+const FORMATOS = new Map();
+export function formatador(opcoes) {
+  const chave = JSON.stringify(opcoes);
+  let f = FORMATOS.get(chave);
+  if (!f) FORMATOS.set(chave, f = new Intl.NumberFormat('pt-BR', opcoes));
+  return f;
+}
+const REAIS_0 = formatador({ style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+const REAIS_2 = formatador({ style: 'currency', currency: 'BRL' });
+
 export function iso(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
@@ -34,9 +46,15 @@ export function somarMesesMes(mes, n) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
+const DIAS_NO_MES = new Map();
 export function diasNoMes(mes) {
-  const [y, m] = mes.split('-').map(Number);
-  return new Date(y, m, 0).getDate();
+  let n = DIAS_NO_MES.get(mes);
+  if (n === undefined) {
+    const [y, m] = mes.split('-').map(Number);
+    n = new Date(y, m, 0).getDate();
+    DIAS_NO_MES.set(mes, n);
+  }
+  return n;
 }
 
 export function nomeMes(mes, { ano = true } = {}) {
@@ -48,9 +66,30 @@ const soma = (lista) => r2(lista.reduce((s, r) => s + r.valor, 0));
 const gastos = (lista) => lista.filter((r) => r.tipo === 'gasto');
 const entradas = (lista) => lista.filter((r) => r.tipo === 'entrada');
 
+// Registros separados por mês, uma vez por lista: cada tela pede vários meses (anterior,
+// últimos 6, média de 3...) e varrer todos os registros a cada pedido pesava no celular.
+// A lista do store não muda de lugar: cada mudança cria uma lista nova.
+const INDICES = new WeakMap();
+function porMes(registros) {
+  let ind = INDICES.get(registros);
+  if (!ind || ind.n !== registros.length) {
+    const mapa = new Map();
+    for (const r of registros) {
+      const m = r.data.slice(0, 7);
+      const lista = mapa.get(m);
+      if (lista) lista.push(r);
+      else mapa.set(m, [r]);
+    }
+    ind = { n: registros.length, mapa };
+    INDICES.set(registros, ind);
+  }
+  return ind.mapa;
+}
+
 /** Registros de um mês, opcionalmente só até um dia (inclusive). */
 export function doMes(registros, mes, ateDia = 31) {
-  return registros.filter((r) => mesDe(r.data) === mes && Number(r.data.slice(8)) <= ateDia);
+  const lista = porMes(registros).get(mes) || [];
+  return ateDia >= 31 ? lista.slice() : lista.filter((r) => Number(r.data.slice(8)) <= ateDia);
 }
 
 export function porCategoria(registros) {
@@ -210,10 +249,13 @@ export function faturaDaCompra(data, cartao) {
  */
 export function faturasCartoes(registros, cartoes, hoje) {
   const hojeISO = iso(hoje);
+  // Uma compra vence no máximo uns 62 dias depois: as mais antigas já estão em faturas pagas.
+  const corte = somarDias(hojeISO, -70);
+  const recentes = cartoes.length ? registros.filter((r) => r.cartaoId && r.tipo === 'gasto' && r.data >= corte) : [];
   return cartoes.map((cartao) => {
     const grupos = new Map();
-    for (const r of registros) {
-      if (r.tipo !== 'gasto' || r.cartaoId !== cartao.id) continue;
+    for (const r of recentes) {
+      if (r.cartaoId !== cartao.id) continue;
       const f = faturaDaCompra(r.data, cartao);
       if (f.vencimento < hojeISO) continue;
       const g = grupos.get(f.vencimento) || { ...f, valor: 0, itens: [] };
@@ -296,7 +338,7 @@ function chaveItem(item) {
   return semAcento(item).replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
 }
 
-const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+const fmt = (v) => REAIS_0.format(v);
 
 /**
  * Dicas de onde economizar, em ordem de importância (máx. `limite`).
@@ -421,8 +463,8 @@ export function avisosDoDia({ registros, orcamentos = [], contas = [], cartoes =
   const lista = [];
   const hojeISO = iso(hoje);
   const mes = mesDe(hojeISO);
-  const fmt0 = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
-  const fmt2 = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const fmt0 = (v) => REAIS_0.format(v);
+  const fmt2 = (v) => REAIS_2.format(v);
 
   // 1) Contas fixas atrasadas ou vencendo em até 3 dias
   for (const s of statusContas(contas, registros, hoje)) {

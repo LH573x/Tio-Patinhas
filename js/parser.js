@@ -85,8 +85,22 @@ export function semAcento(texto) {
   return texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
 
+const TERMOS = new Map();
+function termoNorm(termo) {
+  let t = TERMOS.get(termo);
+  if (t === undefined) TERMOS.set(termo, t = semAcento(termo));
+  return t;
+}
+
+// A expressão de cada palavra é montada uma vez só: a prévia do registro testa centenas de
+// palavras (e as regras aprendidas) a cada letra digitada.
+const EXPRESSOES = new Map();
 function contemPalavra(textoNorm, palavra) {
-  const re = new RegExp(`(^|[^a-z0-9])${palavra.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}s?($|[^a-z0-9])`);
+  let re = EXPRESSOES.get(palavra);
+  if (!re) {
+    re = new RegExp(`(^|[^a-z0-9])${palavra.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}s?($|[^a-z0-9])`);
+    EXPRESSOES.set(palavra, re);
+  }
   return re.test(textoNorm);
 }
 
@@ -121,7 +135,7 @@ export function somarMeses(iso, meses) {
 export function sugerirCategoria(texto, tipo = 'gasto', regras = []) {
   const norm = semAcento(texto);
   for (const r of regras) {
-    if (r.termo && contemPalavra(norm, semAcento(r.termo))) return categoriaAtual(r.categoria);
+    if (r.termo && contemPalavra(norm, termoNorm(r.termo))) return categoriaAtual(r.categoria);
   }
   if (tipo === 'entrada') {
     for (const [categoria, palavras] of PALAVRAS_CATEGORIA_ENTRADA) {

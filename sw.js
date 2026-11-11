@@ -1,18 +1,26 @@
 // Service worker: deixa o app abrir rápido e funcionar offline.
-const VERSAO = 'tp-v4.12';
+const VERSAO = 'tp-v4.13';
 const ARQUIVOS = [
   './', './index.html', './css/style.css', './manifest.webmanifest',
   './js/app.js', './js/config.js', './js/store.js', './js/parser.js', './js/analise.js', './js/extrato.js',
   './js/categorias.js', './js/graficos.js', './js/tema.js', './js/util.js',
   './js/telas/inicio.js', './js/telas/lancamentos.js', './js/telas/painel.js', './js/telas/metas.js',
   './js/telas/registro.js', './js/telas/anexos.js', './js/telas/contas.js', './js/telas/cartoes.js', './js/telas/alertas.js', './js/telas/revisar.js', './js/telas/assessor.js', './js/telas/lembrancas.js', './js/assessor.js', './js/mascote.js', './js/vendor/supabase-2.118.0.js',
-  './icons/icon.svg', './icons/logo.svg', './icons/mascote.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png',
+  './fonts/inter-latin-v20.woff2', './icons/icon.svg',
 ];
+// Arquivos que nunca mudam (a versão está no nome): numa atualização do app, vêm da cópia
+// que já está no aparelho em vez de serem baixados de novo.
+const FIXOS = new Set(['./js/vendor/supabase-2.118.0.js', './fonts/inter-latin-v20.woff2']);
 
 // Instala a versão inteira de uma vez. O "?v=" fura o cache de 10 min do GitHub Pages,
 // para a versão nova não guardar arquivos velhos.
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSAO).then((c) => Promise.all(ARQUIVOS.map(async (u) => {
+    const guardado = FIXOS.has(u) && await caches.match(u);
+    if (guardado) {
+      await c.put(u, guardado);
+      return;
+    }
     const resp = await fetch(new Request(`${u}${u.includes('?') ? '&' : '?'}v=${VERSAO}`, { cache: 'reload' }));
     if (!resp.ok) throw new Error(`${u}: ${resp.status}`);
     await c.put(u, resp);

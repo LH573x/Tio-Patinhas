@@ -37,11 +37,20 @@ function conselhoAtual() {
 
 const NOMES_ABA = { painel: 'Ver painel', metas: 'Ver metas' };
 
+// O tio "chega" com animação só quando aparece; quando a tela é redesenhada (ex.: depois de
+// registrar um gasto), o mesmo conselho fica parado no lugar em vez de pular de novo.
+let ultimoMostrado = null;
+
 export function cardAssessor() {
   const c = conselhoAtual();
-  if (!c) return '';
+  if (!c) {
+    ultimoMostrado = null;
+    return '';
+  }
+  const chegando = ultimoMostrado !== c.titulo;
+  ultimoMostrado = c.titulo;
   return `
-    <section class="assessor" data-humor="${c.humor}" aria-label="Conselho do Tio Patinhas">
+    <section class="assessor${chegando ? '' : ' parado'}" data-humor="${c.humor}" aria-label="Conselho do Tio Patinhas">
       <div class="assessor-avatar">${mascote({ humor: c.humor })}</div>
       <div class="assessor-balao">
         <div class="assessor-nome">Tio Patinhas</div>
