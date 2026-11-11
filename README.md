@@ -25,7 +25,7 @@ Telas:
 
 **Tio Patinhas, o assessor**: o mascote do app (um pato idoso e econômico, de cartola e óculos redondos) aparece de vez em quando no Início com um conselho: um alerta de limite, uma dica de economia com os seus números, um elogio quando você gasta menos que no mês passado ou, em alguns dias, um ditado de quem sabe guardar dinheiro. Depois do “Valeu, tio” ele só volta no dia seguinte (ou antes, se surgir um alerta novo) e não repete o mesmo conselho por alguns dias. O desenho é original, no estilo dos desenhos animados clássicos (contorno de tinta, sombra e brilho), feito em SVG (`js/mascote.js`).
 
-**Logo**: o Tio Patinhas de perfil, simplificado, cunhado numa moeda de ouro (`scripts/moeda.mjs`). Os ícones do app saem dela com `node scripts/icones.mjs`.
+**Logo**: o Tio Patinhas cunhado numa moeda de ouro (`scripts/moeda.mjs`). O retrato é o desenho em `scripts/retrato.png`, vetorizado em `scripts/retrato.mjs` com `python3 scripts/tracar_retrato.py`. Os ícones do app saem da moeda com `node scripts/icones.mjs`.
 
 A previsão do mês soma o ritmo dos gastos do dia a dia com as contas fixas e parcelas pelo valor certo.
 

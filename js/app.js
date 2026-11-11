@@ -10,8 +10,6 @@ import { telaPainel } from './telas/painel.js';
 import { telaMetas } from './telas/metas.js';
 import { abrirLembrancas } from './telas/lembrancas.js';
 
-const VERSAO = '4.13';
-
 const ABAS = {
   inicio: { nome: 'Início', icone: ICONES.inicio, tela: telaInicio },
   lancamentos: { nome: 'Lançamentos', icone: ICONES.lista, tela: telaLancamentos },
@@ -114,10 +112,7 @@ function abrirAjustes() {
     </div>
     <h3 class="sec-titulo">Aplicativo</h3>
     ${blocoInstalar()}
-    <footer class="creditos">
-      <img src="icons/icon.svg" alt="" width="32" height="32">
-      <span>Tio Patinhas · versão ${VERSAO}<small>Desenvolvido por Luiz Hong</small></span>
-    </footer>`, (folha, fechar) => {
+    <p class="creditos">Desenvolvido por Luiz Hong</p>`, (folha, fechar) => {
     $('#instalar-ajustes', folha)?.addEventListener('click', async () => {
       fechar();
       await instalar();

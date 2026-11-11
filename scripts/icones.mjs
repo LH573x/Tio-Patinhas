@@ -1,4 +1,4 @@
-// Gera os ícones do app a partir da logo (scripts/moeda.mjs): o Tio Patinhas de perfil numa moeda de ouro.
+// Gera os ícones do app a partir da logo (scripts/moeda.mjs): o Tio Patinhas numa moeda de ouro.
 // Uso: node scripts/icones.mjs   (os PNGs precisam do Playwright com Chromium)
 import fs from 'node:fs';
 import { createRequire } from 'node:module';

@@ -39,7 +39,7 @@ test('mascote: SVG com humor e texto alternativo', () => {
   assert.notEqual(mascote({ humor: 'feliz' }), mascote({ humor: 'alerta' }));
 });
 
-test('logo: moeda com ids próprios e sem marca de terceiros', async () => {
+test('logo: moeda com ids próprios e referências válidas', async () => {
   const { desenhoMoeda } = await import('../scripts/moeda.mjs');
   const a = desenhoMoeda('a');
   const b = desenhoMoeda('b');
