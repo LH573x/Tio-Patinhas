@@ -1,11 +1,11 @@
 // Service worker: deixa o app abrir rápido e funcionar offline.
-const VERSAO = 'tp-v4.13';
+const VERSAO = 'tp-v4.14';
 const ARQUIVOS = [
   './', './index.html', './css/style.css', './manifest.webmanifest',
   './js/app.js', './js/config.js', './js/store.js', './js/parser.js', './js/analise.js', './js/extrato.js',
   './js/categorias.js', './js/graficos.js', './js/tema.js', './js/util.js',
   './js/telas/inicio.js', './js/telas/lancamentos.js', './js/telas/painel.js', './js/telas/metas.js',
-  './js/telas/registro.js', './js/telas/anexos.js', './js/telas/contas.js', './js/telas/cartoes.js', './js/telas/alertas.js', './js/telas/revisar.js', './js/telas/assessor.js', './js/telas/lembrancas.js', './js/assessor.js', './js/mascote.js', './js/vendor/supabase-2.118.0.js',
+  './js/telas/registro.js', './js/telas/anexos.js', './js/telas/contas.js', './js/telas/cartoes.js', './js/telas/alertas.js', './js/telas/revisar.js', './js/telas/assessor.js', './js/telas/lembrancas.js', './js/telas/sugestoes.js', './js/itens.js', './js/assessor.js', './js/mascote.js', './js/vendor/supabase-2.118.0.js',
   './fonts/inter-latin-v20.woff2', './icons/icon.svg',
 ];
 // Arquivos que nunca mudam (a versão está no nome): numa atualização do app, vêm da cópia

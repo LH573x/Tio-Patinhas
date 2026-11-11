@@ -13,6 +13,7 @@ export const CATEGORIAS_INFO = {
   'Rolê': { icone: '🎉', cor: '#c99700', corEscura: '#e0b000' },
   Entretenimento: { icone: '🎬', cor: '#0b8fa3', corEscura: '#2bb3c7' },
   Outros: { icone: '📦', cor: '#8b8a85', corEscura: '#8b8a85' },
+  'Não lembro': { icone: '🤷', cor: '#6f6a88', corEscura: '#a29dbb' },
   // Ainda não se sabe o que foi: cor de atenção, para chamar a revisão.
   'A definir': { icone: '❔', cor: '#b4570b', corEscura: '#f0a050' },
   'Salário': { icone: '💼', cor: '#008300', corEscura: '#2a9d2a' },

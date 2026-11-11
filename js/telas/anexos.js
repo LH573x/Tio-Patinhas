@@ -6,6 +6,7 @@ import { paraImportar } from './lembrancas.js';
 import { store } from '../store.js';
 import { $, $$, esc, reais, abrirFolha, aviso, dataCurta, selo, ICONES } from '../util.js';
 import { bolinha } from './registro.js';
+import { ligarSugestoes } from './sugestoes.js';
 
 // ---------------------------------------------------------------- Fotos
 
@@ -196,6 +197,13 @@ function revisarImportacao(extrato, nomeArquivo, app) {
         }
       }
     };
+    // Sugestões de itens já usados no "O que foi?" de cada linha
+    lista.addEventListener('focusin', (e) => {
+      if (!e.target.classList.contains('imp-oque')) return;
+      const l = linhas[Number(e.target.closest('.imp-linha').dataset.i)];
+      ligarSugestoes(e.target, { tipo: l.tipo });
+      e.target.dispatchEvent(new Event('focus'));
+    });
     lista.addEventListener('input', (e) => {
       if (!e.target.classList.contains('imp-oque')) return;
       const el = e.target.closest('.imp-linha');

@@ -3,7 +3,7 @@
 // iguais do extrato já entram assim. Dá pra desligar uma por uma ou todas em Ajustes.
 import { store } from '../store.js';
 import { chaveValor, quemDoRegistro } from '../extrato.js';
-import { A_DEFINIR } from '../parser.js';
+import { A_DEFINIR, NAO_LEMBRO } from '../parser.js';
 import { $, $$, esc, reais, abrirFolha, aviso } from '../util.js';
 
 const CHAVE_LIGADO = 'tp.lembrar-valor';
@@ -40,7 +40,7 @@ function iguaisSemNome(r, quem, nomesDoBanco) {
  */
 export function talvezPerguntar({ r, m, quem, nome, nomesDoBanco, app }) {
   if (!quem || !lembrarLigado() || store.semEstabelecimentos) return false;
-  if (!m.item || nomesDoBanco.has(m.item) || m.categoria === A_DEFINIR) return false;
+  if (!m.item || nomesDoBanco.has(m.item) || m.categoria === A_DEFINIR || m.categoria === NAO_LEMBRO) return false;
   if (m.item === r.item && m.categoria === r.categoria) return false;
   const chave = chaveValor(quem.chave, r.valor);
   const atual = store.estabelecimentos().find((e) => e.chave === chave);

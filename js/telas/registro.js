@@ -5,6 +5,7 @@ import { $, $$, esc, reais, abrirFolha, confirmar, aviso, lerNumero, numeroParaC
 import { opcoesCartao } from './cartoes.js';
 import { aprenderEstabelecimentos, quemDoRegistro } from '../extrato.js';
 import { talvezPerguntar } from './lembrancas.js';
+import { ligarSugestoes } from './sugestoes.js';
 
 export function bolinha(categoria, app) {
   return `<span class="bolinha" style="--cor:${app.cor(categoria)}" aria-hidden="true"></span>`;
@@ -71,6 +72,7 @@ export function editarRegistro(r, app) {
         <button type="submit" class="btn primario">Salvar</button>
       </div>
     </form>`, (folha, fechar) => {
+    ligarSugestoes($('input[name=item]', folha), { tipo: r.tipo });
     $('select[name=metodo]', folha).addEventListener('change', (e) => {
       const campo = $('#campo-cartao', folha);
       if (campo) campo.hidden = e.target.value !== 'Crédito';

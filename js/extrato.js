@@ -1,7 +1,7 @@
 // Leitura de extratos bancários (OFX e CSV) direto no app, sem IA.
 // Funciona com os formatos mais comuns dos bancos brasileiros
 // (Nubank, Inter, Itaú, Bradesco, BB, Caixa, C6, Santander...).
-import { semAcento, sugerirCategoria, A_DEFINIR } from './parser.js';
+import { semAcento, sugerirCategoria, A_DEFINIR, NAO_LEMBRO } from './parser.js';
 
 const r2 = (v) => Math.round(v * 100) / 100;
 
@@ -414,7 +414,7 @@ export function chaveValor(chave, valor) {
 export function lembrarPorValor(confirmadas) {
   const lista = new Map();
   for (const c of confirmadas) {
-    if (!c.chave || !c.item || !c.categoria || c.categoria === A_DEFINIR || !(c.valor > 0)) continue;
+    if (!c.chave || !c.item || !c.categoria || c.categoria === A_DEFINIR || c.categoria === NAO_LEMBRO || !(c.valor > 0)) continue;
     const chave = chaveValor(c.chave, c.valor);
     lista.set(chave, { chave, nome: c.nome || null, item: c.item, categoria: c.categoria, vezes: VEZES_PARA_AUTOMATICO });
   }
@@ -549,7 +549,8 @@ export function aprenderEstabelecimentos(confirmadas, estabelecimentos = []) {
   const atual = new Map(estabelecimentos.map((e) => [e.chave, { ...e }]));
   const mudou = new Map();
   for (const c of confirmadas) {
-    if (!c.chave || !c.item) continue;
+    // "Não lembro" vale só para aquele gasto: não vira resposta para o lugar.
+    if (!c.chave || !c.item || c.categoria === NAO_LEMBRO) continue;
     const antes = mudou.get(c.chave) || atual.get(c.chave);
     const igual = antes && normalizar(antes.item) === normalizar(c.item) && antes.categoria === c.categoria;
     mudou.set(c.chave, { chave: c.chave, nome: c.nome || (antes && antes.nome) || null, apelido: (antes && antes.apelido) || null,
