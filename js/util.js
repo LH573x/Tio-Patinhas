@@ -82,10 +82,13 @@ export function numeroParaCampo(v) {
 }
 
 /** Faixa que pede para rodar o schema.sql de novo quando o banco está desatualizado. */
-export function avisoBanco(ativo) {
-  if (!ativo) return '';
-  return `<div class="aviso-banco">${ICONES.alerta}<span>Falta atualizar o banco pra usar todas as novidades (contas fixas, cartões, limites, metas, fotos, local e horário, aprender estabelecimentos do extrato):
-    rode de novo o arquivo <b>schema.sql</b> no SQL Editor do Supabase, com “Primary Database” selecionado.</span></div>`;
+export function avisoBanco(ativo, esperando = 0) {
+  if (!ativo && !esperando) return '';
+  const guardado = esperando
+    ? ` ${esperando === 1 ? '1 alteração está guardada' : `${esperando} alterações estão guardadas`} só neste celular e vai para a nuvem sozinha depois disso.`
+    : '';
+  return `<div class="aviso-banco">${ICONES.alerta}<span>Falta atualizar o banco pra usar todas as novidades (contas fixas, cartões, etiquetas, quem recebeu, limites, metas, fotos):
+    rode de novo o arquivo <b>schema.sql</b> no SQL Editor do Supabase, com “Primary Database” selecionado.${guardado}</span></div>`;
 }
 
 // ---------- Aviso rápido (toast) ----------

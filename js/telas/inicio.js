@@ -246,7 +246,7 @@ async function registrar(app) {
 }
 
 export function telaInicio(raiz, app) {
-  raiz.innerHTML = [avisoBanco(store.bancoDesatualizado), cardMes(), cardAssessor(), cardPagar(), cardADefinir(), cardCaixa(app), cardHoje(app), cardRegistrar()].join('');
+  raiz.innerHTML = [avisoBanco(store.bancoDesatualizado, store.esperandoBanco()), cardMes(), cardAssessor(), cardPagar(), cardADefinir(), cardCaixa(app), cardHoje(app), cardRegistrar()].join('');
   $('#frase', raiz).addEventListener('input', renderPrevia);
   ligarSugestoes($('#frase', raiz), { caixa: $('#sugestoes-frase', raiz), parte: itemDaFrase });
   $('#form-registro', raiz).addEventListener('submit', (e) => {

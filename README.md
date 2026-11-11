@@ -53,6 +53,8 @@ O app escolhe a etiqueta pelas palavras (“uber 25” vai para Transporte › U
 
 Os dados ficam no Supabase, com login. Cada pessoa só vê os próprios registros (veja `supabase/schema.sql`). Ao atualizar o app, rode de novo o `schema.sql` no SQL Editor do Supabase (com “Primary Database” selecionado): ele é seguro para rodar várias vezes.
 
+Para saber se falta algo no banco, rode `supabase/checar-banco.sql` (só lê): cada linha que aparecer diz o que falta e qual arquivo rodar; nenhuma linha quer dizer que está tudo em dia. Enquanto o banco estiver desatualizado, o app avisa e guarda no celular o que o banco ainda não aceita (etiqueta, cartão, quem recebeu...), e manda sozinho depois que o SQL for rodado. Etiquetas de Transporte que ficaram sem gravar antes disso podem ser preenchidas com `supabase/recuperar-etiquetas.sql`.
+
 ## Desenvolvimento
 
 Sem build: HTML, CSS e JavaScript puros.
