@@ -1,10 +1,10 @@
 // Tela inicial: número do mês, o que vence, hoje e ontem, e o campo de registrar fixo no pé.
-import { interpretar, gerarLancamentos, CATEGORIAS_GASTO, CATEGORIAS_ENTRADA, METODOS } from '../parser.js';
+import { interpretar, gerarLancamentos, CATEGORIAS_GASTO, CATEGORIAS_ENTRADA, METODOS, etiquetaDe } from '../parser.js';
 import { resumoMes, statusLimites, mesDe, iso, statusContas, faturasCartoes, diasEntre, rotuloVencimento } from '../analise.js';
 import { store } from '../store.js';
 import { $, esc, reais, valorHero, hojeISO, horaAgora, dataCurta, aviso, avisoBanco, ICONES } from '../util.js';
 import { progresso, estadoLimite } from '../graficos.js';
-import { linhaRegistro, ligarRegistros } from './registro.js';
+import { linhaRegistro, ligarRegistros, campoEtiqueta } from './registro.js';
 import { enviarCupom, cardCaixa, ligarCaixa } from './anexos.js';
 import { pagarConta } from './contas.js';
 import { opcoesCartao, cartaoPadrao } from './cartoes.js';
@@ -138,6 +138,13 @@ function renderPrevia() {
     previa.categoria = anterior.categoria;
     previa.categoriaManual = true;
   }
+  // Etiqueta (ex.: Transporte › Uber): a escolhida, se a categoria não mudou; senão, a sugerida.
+  if (anterior && anterior.etiquetaManual && anterior.categoria === previa.categoria) {
+    previa.etiqueta = anterior.etiqueta;
+    previa.etiquetaManual = true;
+  } else {
+    previa.etiqueta = store.sugerirEtiqueta(previa.item, previa.categoria, texto);
+  }
   if (anterior && anterior.localManual) {
     previa.local = anterior.local;
     previa.localManual = true;
@@ -172,6 +179,7 @@ function renderPrevia() {
       <label class="campo">Categoria<select id="p-cat">${opcoes(cats, previa.categoria)}</select></label>
       <label class="campo">Pagamento<select id="p-metodo"><option value="">—</option>${opcoes(METODOS, previa.metodo)}</select></label>
     </div>
+    <div class="campo-etiqueta">${campoEtiqueta(previa.categoria, previa.etiqueta || etiquetaDe({ categoria: previa.categoria }), { id: 'p-etiqueta' })}</div>
     ${previa.metodo === 'Crédito' && store.cartoes().length > 1 ? `
       <label class="campo">Cartão<select id="p-cartao">${opcoesCartao(previa.cartaoId)}</select></label>` : ''}
     <div class="dupla">
@@ -202,6 +210,11 @@ function renderPrevia() {
   $('#p-cat').addEventListener('change', (e) => {
     previa.categoria = e.target.value;
     previa.categoriaManual = true;
+    renderPrevia(); // mostra as etiquetas da categoria nova
+  });
+  $('#p-etiqueta')?.addEventListener('change', (e) => {
+    previa.etiqueta = e.target.value || null;
+    previa.etiquetaManual = true;
   });
 }
 
@@ -211,7 +224,7 @@ async function registrar(app) {
     aviso('Coloque o valor, ex.: “salgado 8,50 pix”', 'erro');
     return;
   }
-  const { categoriaManual, localManual, horaManual, horaAutomatica, cartaoManual, metodoManual, completo, ...reg } = previa;
+  const { categoriaManual, etiquetaManual, localManual, horaManual, horaAutomatica, cartaoManual, metodoManual, completo, ...reg } = previa;
   if (reg.metodo !== 'Crédito') reg.cartaoId = null;
   if (horaAutomatica) reg.hora = horaAgora(); // hora de quando registrou de fato
   salvando = true;

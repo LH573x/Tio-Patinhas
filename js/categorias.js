@@ -2,6 +2,7 @@
 // todos os gráficos, nunca a posição no ranking).
 // Cores da paleta validada para daltonismo (ordem fixa), com variação para o
 // modo escuro. "Outros" é cinza de propósito: é o grupo de sobras.
+import { CATEGORIAS_ANTIGAS } from './parser.js';
 
 export const CATEGORIAS_INFO = {
   'Refeições': { icone: '🍽️', cor: '#eb6834', corEscura: '#d95926' },
@@ -13,7 +14,7 @@ export const CATEGORIAS_INFO = {
   'Rolê': { icone: '🎉', cor: '#c99700', corEscura: '#e0b000' },
   Entretenimento: { icone: '🎬', cor: '#0b8fa3', corEscura: '#2bb3c7' },
   Roupas: { icone: '👕', cor: '#a35a2a', corEscura: '#cf8a55' },
-  'Metrô': { icone: '🚇', cor: '#3f5a8a', corEscura: '#7d9bd1' },
+  Transporte: { icone: '🚌', cor: '#3f5a8a', corEscura: '#7d9bd1' },
   Outros: { icone: '📦', cor: '#8b8a85', corEscura: '#8b8a85' },
   'Não lembro': { icone: '🤷', cor: '#6f6a88', corEscura: '#a29dbb' },
   // Ainda não se sabe o que foi: cor de atenção, para chamar a revisão.
@@ -25,8 +26,8 @@ export const CATEGORIAS_INFO = {
   'Outras entradas': { icone: '💰', cor: '#eda100', corEscura: '#c98500' },
 };
 
-// Categorias que viraram outra (mesmo mapa de parser.js).
-const ANTIGAS = { 'Álcool': 'Rolê' };
+// Categorias que viraram outra ("Álcool" -> "Rolê", "Metrô" -> "Transporte").
+const ANTIGAS = CATEGORIAS_ANTIGAS;
 
 export function infoCategoria(nome) {
   return CATEGORIAS_INFO[nome] || CATEGORIAS_INFO[ANTIGAS[nome]] || CATEGORIAS_INFO.Outros;

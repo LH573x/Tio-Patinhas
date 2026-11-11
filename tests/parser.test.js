@@ -132,20 +132,47 @@ test('categoria antiga "Álcool" vira "Rolê", inclusive em regras aprendidas', 
   assert.equal(sugerirCategoria('bar do zé', 'gasto', [{ termo: 'bar do ze', categoria: 'Álcool' }]), 'Rolê');
 });
 
-test('categorias Roupas e Metrô', async () => {
-  const { sugerirCategoria, CATEGORIAS_GASTO } = await import('../js/parser.js');
-  const { CATEGORIAS_INFO } = await import('../js/categorias.js');
-  for (const c of ['Roupas', 'Metrô']) {
+test('categorias Roupas e Transporte (o antigo Metrô)', async () => {
+  const { sugerirCategoria, CATEGORIAS_GASTO, categoriaAtual } = await import('../js/parser.js');
+  const { CATEGORIAS_INFO, infoCategoria } = await import('../js/categorias.js');
+  for (const c of ['Roupas', 'Transporte']) {
     assert.ok(CATEGORIAS_GASTO.includes(c));
     assert.ok(CATEGORIAS_INFO[c], `${c} tem ícone e cor`);
   }
+  assert.ok(!CATEGORIAS_GASTO.includes('Metrô'));
+  assert.equal(categoriaAtual('Metrô'), 'Transporte');
+  assert.equal(infoCategoria('Metrô'), CATEGORIAS_INFO.Transporte);
   assert.equal(sugerirCategoria('camiseta renner'), 'Roupas');
   assert.equal(sugerirCategoria('tênis'), 'Roupas');
-  assert.equal(sugerirCategoria('metrô'), 'Metrô');
-  assert.equal(sugerirCategoria('passagem do metro'), 'Metrô');
-  assert.equal(sugerirCategoria('recarga do bilhete único'), 'Metrô');
+  assert.equal(sugerirCategoria('metrô'), 'Transporte');
+  assert.equal(sugerirCategoria('passagem do metro'), 'Transporte');
+  assert.equal(sugerirCategoria('recarga do bilhete único'), 'Transporte');
+  assert.equal(sugerirCategoria('ônibus'), 'Transporte');
+  assert.equal(sugerirCategoria('uber'), 'Transporte');
+  assert.equal(sugerirCategoria('uber eats'), 'Refeições');
   assert.equal(sugerirCategoria('passagem de avião'), 'Viagens');
   const r = (f) => interpretar(f, { hoje });
   assert.equal(r('camisa 80 pix').categoria, 'Roupas');
-  assert.equal(r('metro 5,40').categoria, 'Metrô');
+  assert.equal(r('metro 5,40').categoria, 'Transporte');
+});
+
+test('etiquetas de Transporte e Namorada', async () => {
+  const { etiquetaDe, etiquetasDe } = await import('../js/parser.js');
+  const r = (f) => interpretar(f, { hoje });
+  assert.deepEqual(etiquetasDe('Namorada'), ['Viagem', 'Estacionamento', 'Refeições', 'Presentes', 'Outros']);
+  assert.deepEqual(etiquetasDe('Transporte'), ['Uber', 'Transporte público']);
+  assert.deepEqual(etiquetasDe('Carro'), []);
+  assert.equal(r('uber 25 pix').etiqueta, 'Uber');
+  assert.equal(r('99pop 18').etiqueta, 'Uber');
+  assert.equal(r('metrô 5,40').etiqueta, 'Transporte público');
+  assert.equal(r('ônibus 5').etiqueta, 'Transporte público');
+  assert.equal(r('jantar com a namorada 180').etiqueta, 'Refeições');
+  assert.equal(r('estacionamento namorada 20').etiqueta, 'Estacionamento');
+  assert.equal(r('presente namorada 150').etiqueta, 'Presentes');
+  assert.equal(r('hotel com a namorada 500').etiqueta, 'Viagem');
+  assert.equal(r('gasolina 200').etiqueta, null);
+  // Namorada sem etiqueta conta como "Outros"; etiqueta de outra categoria não vale
+  assert.equal(etiquetaDe({ categoria: 'Namorada' }), 'Outros');
+  assert.equal(etiquetaDe({ categoria: 'Transporte' }), null);
+  assert.equal(etiquetaDe({ categoria: 'Carro', etiqueta: 'Uber' }), null);
 });

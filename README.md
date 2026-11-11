@@ -19,8 +19,8 @@ O app identifica item, valor, forma de pagamento e categoria. Se você corrigir 
 Telas:
 
 - **Início**: resumo do mês, card “Seu dia” (contas e faturas vencendo, limites perto de estourar, quanto dá pra gastar por dia), registro rápido, foto do cupom, extrato, revisar ontem e hoje. Ao registrar um gasto que passa de 80% ou 100% do limite, o aviso de confirmação já diz.
-- **Lançamentos**: todos os registros do mês por dia, com busca, filtro por categoria e importação de extrato.
-- **Painel**: faturas de cada cartão (valor, vencimento e limite usado), para onde foi o dinheiro, comparação com o mês anterior, gastos dos últimos 6 meses, dicas de economia, semana passada e parcelas futuras.
+- **Lançamentos**: os registros por dia, de um mês, de vários meses ou de tudo, com busca, filtro por categoria e por etiqueta e importação de extrato. Em “Selecionar”, marque vários (ou “Marcar todos” depois de filtrar) e toque em “Mudar” para trocar categoria, etiqueta ou nome de todos de uma vez, ou na lixeira para apagar.
+- **Painel**: categorias no período que você escolher (mês, 30 dias, 3 ou 6 meses, ano, tudo ou datas), cada uma com a lista dos gastos e o total por etiqueta; faturas de cada cartão (valor, vencimento e limite usado), para onde foi o dinheiro, comparação com o mês anterior, gastos dos últimos 6 meses, dicas de economia, semana passada e parcelas futuras.
 - **Metas**: contas fixas (com botão “Paguei”), cartões de crédito, limite por categoria e metas de economia.
 
 **Tio Patinhas, o assessor**: o mascote do app (um pato idoso e econômico, de cartola e óculos redondos) aparece de vez em quando no Início com um conselho: um alerta de limite, uma dica de economia com os seus números, um elogio quando você gasta menos que no mês passado ou, em alguns dias, um ditado de quem sabe guardar dinheiro. Depois do “Valeu, tio” ele só volta no dia seguinte (ou antes, se surgir um alerta novo) e não repete o mesmo conselho por alguns dias. O desenho é original, no estilo dos desenhos animados clássicos (contorno de tinta, sombra e brilho), feito em SVG (`js/mascote.js`).
@@ -40,7 +40,14 @@ Aparência: Claro, Escuro ou Automático (toque no seu avatar, no canto de cima)
 
 ## Categorias
 
-Refeições, Alimentação geral, Carro, Namorada, Viagens, Besteira (o que dava pra evitar: doces, salgadinho, refrigerante), Rolê (saídas, festas, bares e bebida), Entretenimento (cinema, streaming, shows, jogos), Outros e A definir. Entradas: Salário, Caixa 2 VR, Caixa 2, Poker, Outras entradas.
+Refeições, Alimentação geral, Carro, Namorada, Viagens, Besteira (o que dava pra evitar: doces, salgadinho, refrigerante), Rolê (saídas, festas, bares e bebida), Entretenimento (cinema, streaming, shows, jogos), Roupas, Transporte, Outros, Não lembro e A definir.
+
+**Etiquetas** dividem uma categoria sem mexer nos totais (cada gasto conta numa categoria só):
+
+- Namorada: Viagem, Estacionamento, Refeições, Presentes e Outros (sem etiqueta conta como Outros).
+- Transporte: Uber (Uber, 99, táxi) e Transporte público (metrô, CPTM, ônibus, bilhete único).
+
+O app escolhe a etiqueta pelas palavras (“uber 25” vai para Transporte › Uber) ou pela que você usou da última vez no mesmo item. A antiga categoria Metrô virou Transporte › Transporte público (rode `supabase/transporte-etiquetas.sql` uma vez). Entradas: Salário, Caixa 2 VR, Caixa 2, Poker, Outras entradas.
 
 ## Estado atual
 

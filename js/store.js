@@ -1,7 +1,7 @@
 // Armazenamento dos registros no Supabase (com login).
 // Mantém uma cópia local para o app abrir rápido, mesmo sem internet.
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
-import { categoriaAtual, NAO_LEMBRO } from './parser.js';
+import { categoriaAtual, NAO_LEMBRO, ETIQUETA_DAS_ANTIGAS, etiquetasDe, sugerirEtiqueta } from './parser.js';
 
 const CHAVE_CACHE = 'tp.cache.v2';
 // Chaves da versão anterior, que guardava tudo só no aparelho.
@@ -31,6 +31,29 @@ function gravarLocal(chave, valor) {
   }
 }
 
+/**
+ * Etiqueta de um gasto (ex.: Transporte › Uber): a que você deu da última vez para o
+ * mesmo item na mesma categoria; senão, pelas palavras ("uber" -> Uber). null se a
+ * categoria não tem etiquetas ou não deu para saber.
+ */
+function etiquetaAutomatica(item, categoria, texto) {
+  if (!etiquetasDe(categoria).length) return null;
+  const nome = String(item || '').trim().toLowerCase();
+  let ultimo = null;
+  if (nome) {
+    for (const r of cache.registros) {
+      if (r.categoria === categoria && r.etiqueta && String(r.item).toLowerCase() === nome && (!ultimo || r.data > ultimo.data)) ultimo = r;
+    }
+  }
+  return ultimo ? ultimo.etiqueta : sugerirEtiqueta(item, categoria) || sugerirEtiqueta(texto, categoria);
+}
+
+// Etiqueta que vai para o banco: a escolhida (se for da categoria) ou, sem escolha, a automática.
+function etiquetaParaBanco(r) {
+  if (r.etiqueta === undefined) return etiquetaAutomatica(r.item, r.categoria, r.textoOriginal);
+  return r.etiqueta && etiquetasDe(r.categoria).includes(r.etiqueta) ? r.etiqueta : null;
+}
+
 function paraBanco(r) {
   return {
     tipo: r.tipo,
@@ -38,6 +61,7 @@ function paraBanco(r) {
     valor: r.valor,
     metodo: r.metodo || null,
     categoria: r.categoria,
+    etiqueta: etiquetaParaBanco(r),
     data: r.data,
     parcela: r.parcela || null,
     origem: r.origem || 'texto',
@@ -53,8 +77,8 @@ function paraBanco(r) {
 // Nome da coluna no banco, quando é diferente do nome no app.
 const COLUNAS_BANCO = { textoOriginal: 'texto_original', refExterna: 'ref_externa', cartaoId: 'cartao_id', criadoEm: 'criado_em' };
 
-// Banco ainda sem colunas novas (local, hora, cartao_id): grava sem elas até o schema.sql ser rodado de novo.
-const COLUNAS_NOVAS = ['local', 'hora', 'cartao_id', 'estabelecimento'];
+// Banco ainda sem colunas novas (local, hora, cartao_id, etiqueta): grava sem elas até o schema.sql ser rodado de novo.
+const COLUNAS_NOVAS = ['local', 'hora', 'cartao_id', 'estabelecimento', 'etiqueta'];
 const colunasFaltando = new Set();
 function paraBancoCompat(r) {
   const b = paraBanco(r);
@@ -103,6 +127,8 @@ function doBanco(row) {
     valor: Number(row.valor),
     metodo: row.metodo,
     categoria: categoriaAtual(row.categoria),
+    // Gastos de "Metrô" viram Transporte › Transporte público, mesmo antes do SQL de migração.
+    etiqueta: row.etiqueta || ETIQUETA_DAS_ANTIGAS[row.categoria] || null,
     data: row.data,
     parcela: row.parcela,
     origem: row.origem,
@@ -157,6 +183,9 @@ function falhar(error) {
 
 const VAZIO = () => ({ registros: [], regras: [], orcamentos: [], metas: [], caixa: [], contas: [], cartoes: [], estabelecimentos: [] });
 let cache = { ...VAZIO(), ...lerLocal(CHAVE_CACHE, {}) };
+// Cópia guardada antes de uma categoria mudar de nome ("Metrô" -> "Transporte"): já abre com o nome novo.
+cache.registros = cache.registros.map((r) => (r.categoria === categoriaAtual(r.categoria) ? r
+  : { ...r, categoria: categoriaAtual(r.categoria), etiqueta: r.etiqueta || ETIQUETA_DAS_ANTIGAS[r.categoria] || null }));
 let usuarioAtual = null;
 
 function usuarioDaSessaoGuardada() {
@@ -464,6 +493,10 @@ export const store = {
   },
   regras() {
     return cache.regras;
+  },
+  /** Etiqueta sugerida para um item numa categoria (a última que você usou, ou pelas palavras). */
+  sugerirEtiqueta(item, categoria, texto) {
+    return etiquetaAutomatica(item, categoria, texto);
   },
   /** Novo registro: aparece na hora; o envio segue em segundo plano. */
   async adicionar(lancamentos) {

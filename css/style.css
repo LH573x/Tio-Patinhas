@@ -218,6 +218,8 @@ main.com-campo { padding-bottom: calc(var(--barra-abas) + 120px + env(safe-area-
 
 /* ---------------------------------------------------------------- Campos */
 .formulario { display: flex; flex-direction: column; gap: 14px; }
+/* Etiqueta da categoria: some (sem deixar espaço) quando a categoria não tem etiquetas */
+.campo-etiqueta { display: contents; }
 .campo { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500; color: var(--texto-3); min-width: 0; }
 .campo input, .campo select, .imp-item, .imp-detalhe select {
   width: 100%; min-height: 48px; padding: 0 14px;
@@ -536,7 +538,9 @@ main.com-campo { padding-bottom: calc(var(--barra-abas) + 120px + env(safe-area-
 .parecido-meio small { font-size: 12px; color: var(--texto-3); }
 .parecido-valor { font-size: 14px; font-variant-numeric: tabular-nums; }
 
-/* Lançamentos: selecionar vários para apagar */
+/* Lançamentos: selecionar vários para mudar ou apagar */
+.rotulo-periodo { font-weight: 600; font-size: 15px; }
+.barra-selecao .btn.icone-so { padding: 0 10px; }
 .acoes-lista { display: flex; gap: 8px; }
 .chip-acao.ativo { background: var(--texto); color: var(--fundo); }
 .barra-selecao { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px;
@@ -547,9 +551,9 @@ main.com-campo { padding-bottom: calc(var(--barra-abas) + 120px + env(safe-area-
 .barra-selecao .btn:disabled { opacity: .4; }
 .selecionando .registro::before { content: ""; flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
   border: 2px solid var(--texto-3); box-sizing: border-box; }
-.selecionando .registro.sel-marcado::before { border-color: var(--estourou); background: var(--estourou)
+.selecionando .registro.sel-marcado::before { border-color: var(--destaque); background: var(--destaque)
   url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/14px no-repeat; }
-.selecionando .registro.sel-marcado { background: color-mix(in srgb, var(--estourou) 6%, transparent); }
+.selecionando .registro.sel-marcado { background: color-mix(in srgb, var(--destaque) 8%, transparent); }
 
 /* ---------------------------------------------------------------- Tio Patinhas, o assessor */
 .mascote { display: block; width: 100%; height: 100%; }

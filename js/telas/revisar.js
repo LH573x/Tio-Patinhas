@@ -151,7 +151,8 @@ export function revisarADefinir(app, pulados = new Set()) {
         const ids = new Set(marcados().map((c) => c.dataset.id));
         const grupo = [r, ...parecidos.map((p) => p.registro).filter((p) => ids.has(p.id))];
         // Todos do grupo recebem a mesma resposta: muda tudo de uma vez (um envio só para a nuvem)
-        await store.atualizarVarios(grupo.map((g) => g.id), oque ? { item: oque, categoria } : { categoria });
+        const etiqueta = store.sugerirEtiqueta(oque || r.item, categoria, r.textoOriginal);
+        await store.atualizarVarios(grupo.map((g) => g.id), oque ? { item: oque, categoria, etiqueta } : { categoria, etiqueta });
         if (oque) {
           const confirmadas = grupo.map((g) => ({ chave: chaveDoRegistro(g), nome: g.local || g.item, item: oque, categoria, valor: g.valor }));
           const sempre = $('input[name=sempre]', folha)?.checked;
